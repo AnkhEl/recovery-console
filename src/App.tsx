@@ -10,6 +10,12 @@ import {
 } from "./coordination";
 import { validUnitPosition } from "./unitPosition";
 import {
+  baselineAlternatives,
+  createScenarioReview,
+  revalidateScenarioReview,
+  type ScenarioReview,
+} from "./scenarioAnalysis";
+import {
   clock,
   displayTimestamp,
   DURATION,
@@ -52,6 +58,11 @@ export function App() {
   >({});
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
   const [pendingSignal, setPendingSignal] = useState(false);
+  const [scenarioReview, setScenarioReview] = useState<ScenarioReview | null>(
+    null,
+  );
+  const [reviewChanged, setReviewChanged] = useState(false);
+  const [reviewUnavailable, setReviewUnavailable] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null),
     [following, setFollowing] = useState(false),
     [cameraRequest, setCameraRequest] = useState<CameraRequest | null>(null),
@@ -113,6 +124,11 @@ export function App() {
   const snapshot = useMemo(
     () => source?.snapshot(displaySecond, run),
     [source, displaySecond, run],
+  );
+  const alternatives = useMemo(
+    () =>
+      source && snapshot ? baselineAlternatives(snapshot, source.graph) : [],
+    [source, snapshot],
   );
   if (!snapshot || !source)
     return (
@@ -278,6 +294,39 @@ export function App() {
     if (hasFutureActions) setPendingOrder(order);
     else commitOrder(order, false);
   };
+  const confirmScenarioOrder = () => {
+    if (!scenarioReview) return;
+    const currentView = source.snapshot(Math.floor(time), run);
+    const checked = revalidateScenarioReview(
+      scenarioReview,
+      currentView,
+      source.graph,
+      run.id,
+    );
+    if (checked.status === "unavailable") {
+      setReviewUnavailable(true);
+      setReviewChanged(false);
+      return;
+    }
+    if (checked.status === "refreshed") {
+      setScenarioReview(checked.review!);
+      setReviewChanged(true);
+      setReviewUnavailable(false);
+      return;
+    }
+    const candidate = checked.review!.candidate;
+    const order: Order = {
+      id: `${run.id}-${run.actions.length + 1}-${currentView.displaySecond}`,
+      second: currentView.displaySecond,
+      unitId: candidate.unitId,
+      kind: candidate.action,
+      objectiveId: candidate.objectiveId,
+    };
+    commitOrder(order, hasFutureActions);
+    setScenarioReview(null);
+    setReviewChanged(false);
+    setReviewUnavailable(false);
+  };
   const seek = (value: number) => {
     playbackGenerationRef.current++;
     setPlaying(false);
@@ -301,6 +350,9 @@ export function App() {
     setObjectiveSelections({});
     setPendingOrder(null);
     setPendingSignal(false);
+    setScenarioReview(null);
+    setReviewChanged(false);
+    setReviewUnavailable(false);
     setSelectedUnit(null);
     setFollowing(false);
     setCameraRequest(null);
@@ -537,6 +589,71 @@ export function App() {
           <p className="muted unit-caption">
             Choose an objective to send a simulated unit from its own position.
           </p>
+          <section className="scenario-analysis" aria-label="Scenario analysis">
+            <div className="section-kicker">SCENARIO ANALYSIS</div>
+            <p>
+              Transparent baseline alternatives for this replay moment. Each is
+              a separate simulated order, not a multi-unit plan.
+            </p>
+            {alternatives.length ? (
+              <ol>
+                {alternatives.map((candidate) => {
+                  const unit = snapshot.units.find(
+                    (item) => item.unitId === candidate.unitId,
+                  );
+                  const unitAge = unit?.currentReport
+                    ? Math.floor(
+                        (Date.parse(snapshot.displayTimestamp) -
+                          Date.parse(unit.currentReport.deviceTimestamp)) /
+                          1000,
+                      )
+                    : 0;
+                  return (
+                    <li key={`${candidate.unitId}:${candidate.objectiveId}`}>
+                      <strong>
+                        {candidate.unitName} → {candidate.objectiveName}
+                      </strong>
+                      <span>
+                        {candidate.action === "retask" ? "Retask" : "Assign"} ·
+                        current-traffic route ETA about{" "}
+                        {Math.ceil(candidate.trafficRouteSeconds)}s
+                      </span>
+                      <small>
+                        Vehicle report {snapshot.reportAgeSeconds}s old · unit
+                        report {unitAge}s old ·{" "}
+                        {Math.round(candidate.features[8] * 3)} configured
+                        visible approaches
+                      </small>
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setPlaying(false);
+                          setScenarioReview(
+                            createScenarioReview(snapshot, candidate, run.id),
+                          );
+                          setReviewChanged(false);
+                          setReviewUnavailable(false);
+                        }}
+                        aria-label={`Review ${candidate.action} ${candidate.unitName} to ${candidate.objectiveName}`}
+                      >
+                        Review option
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <p className="analysis-unavailable">
+                No eligible alternatives at this replay time. Check confirmed
+                report ages and unit availability.
+              </p>
+            )}
+            <small>
+              Based on confirmed simulated reports, current displayed traffic,
+              and mapped directed routes. Future traffic and vehicle movement
+              are unknown. No order is placed by this analysis.
+            </small>
+          </section>
           <div id="unitList">
             {snapshot.units.map((u) => {
               const assigned = assignedAt(u.unitId);
@@ -801,6 +918,75 @@ export function App() {
                 uncertainty, and leave decisions with trained operators
               </li>
             </ol>
+          </div>
+        </div>
+      )}
+      {scenarioReview && (
+        <div className="dialog-backdrop">
+          <div
+            className="roadmap-dialog scenario-review"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Review scenario analysis option"
+          >
+            <div className="section-kicker">
+              SCENARIO ANALYSIS · ORDER REVIEW
+            </div>
+            <h2>
+              {scenarioReview.candidate.action === "retask"
+                ? "Retask"
+                : "Assign"}{" "}
+              {scenarioReview.candidate.unitName}
+            </h2>
+            {reviewUnavailable ? (
+              <p role="status">
+                This option is no longer eligible in the current replay view.
+                Close this review and choose a current alternative.
+              </p>
+            ) : (
+              <>
+                {reviewChanged && (
+                  <p role="status" className="review-changed">
+                    Replay information changed. Review these updated details,
+                    then confirm again if you still want this order.
+                  </p>
+                )}
+                <p>
+                  Objective: {scenarioReview.candidate.objectiveName}. Order at{" "}
+                  {elapsed(scenarioReview.displaySecond)} in{" "}
+                  {runs.find((item) => item.id === scenarioReview.runId)
+                    ?.name ?? "this run"}
+                  .
+                </p>
+                <p>
+                  Estimated legal-route travel time with currently displayed
+                  traffic: about{" "}
+                  {Math.ceil(scenarioReview.candidate.trafficRouteSeconds)}s.
+                  This is not an observation prediction. The vehicle may take
+                  another approach, traffic may change, or visibility may block
+                  a sighting.
+                </p>
+                {hasFutureActions && (
+                  <p>
+                    Confirming creates an alternative run at this replay time;
+                    later actions remain in the saved run.
+                  </p>
+                )}
+              </>
+            )}
+            <div className="branch-actions">
+              <button
+                className="secondary"
+                onClick={() => setScenarioReview(null)}
+              >
+                Close review
+              </button>
+              {!reviewUnavailable && (
+                <button className="primary" onClick={confirmScenarioOrder}>
+                  Confirm simulated order
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

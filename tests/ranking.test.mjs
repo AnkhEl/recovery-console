@@ -6,7 +6,7 @@ import { build } from "esbuild";
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./src/ranking.ts"; export * from "./src/coordination.ts";',
+      'export * from "./src/ranking.ts"; export * from "./src/coordination.ts"; export * from "./src/scenarioAnalysis.ts";',
     resolveDir: process.cwd(),
     sourcefile: "ranking-test-entry.ts",
   },
@@ -169,4 +169,129 @@ test("Unit 03's zero-second Sandton Drive route starts at that junction", () => 
   assert.equal(candidate.action, "retask");
   assert.equal(candidate.trafficRouteSeconds, 0);
   assert.equal(candidate.features[0], 0);
+});
+
+test("Scenario analysis shows distinct baseline alternatives and checks current replay state", () => {
+  const view = source.snapshot(0, run);
+  const options = engine.baselineAlternatives(view, graph);
+  assert(options.length > 0 && options.length <= 3);
+  assert.equal(
+    new Set(options.map((item) => item.unitId)).size,
+    options.length,
+  );
+  assert(
+    options.every(
+      (item) =>
+        item.baselineScore ===
+        engine
+          .rankingCandidates(view, graph)
+          .find(
+            (candidate) =>
+              candidate.unitId === item.unitId &&
+              candidate.objectiveId === item.objectiveId,
+          ).baselineScore,
+    ),
+  );
+  const review = engine.createScenarioReview(view, options[0], run.id);
+  assert.equal(
+    engine.revalidateScenarioReview(review, view, graph, run.id).status,
+    "current",
+  );
+  assert.equal(
+    engine.revalidateScenarioReview(
+      review,
+      source.snapshot(1, run),
+      graph,
+      run.id,
+    ).status,
+    "refreshed",
+  );
+  const travelOption = engine
+    .rankingCandidates(view, graph)
+    .find((candidate) => candidate.trafficRouteSeconds > 0);
+  assert(travelOption);
+  const travelReview = engine.createScenarioReview(view, travelOption, run.id);
+  const destination = view.objectives.find(
+    (objective) => objective.id === travelOption.objectiveId,
+  );
+  const movedUnit = {
+    ...view,
+    units: view.units.map((unit) =>
+      unit.unitId === travelOption.unitId
+        ? {
+            ...unit,
+            currentReport: {
+              ...unit.currentReport,
+              coordinates: destination.coordinates,
+            },
+          }
+        : unit,
+    ),
+  };
+  const movedReview = engine.revalidateScenarioReview(
+    travelReview,
+    movedUnit,
+    graph,
+    run.id,
+  );
+  assert.equal(movedReview.status, "refreshed");
+  assert.equal(movedReview.review.candidate.trafficRouteSeconds, 0);
+  assert.equal(
+    engine.revalidateScenarioReview(review, view, graph, "other-run").status,
+    "refreshed",
+  );
+  assert.equal(
+    engine.revalidateScenarioReview(
+      review,
+      {
+        ...view,
+        trafficSegments: view.trafficSegments.map((segment) => ({
+          ...segment,
+          level: 2,
+        })),
+      },
+      graph,
+      run.id,
+    ).status,
+    "refreshed",
+  );
+  assert.equal(
+    engine.revalidateScenarioReview(
+      review,
+      {
+        ...view,
+        objectives: view.objectives.map((objective) =>
+          objective.id === options[0].objectiveId
+            ? { ...objective, name: `${objective.name} updated` }
+            : objective,
+        ),
+      },
+      graph,
+      run.id,
+    ).status,
+    "refreshed",
+  );
+  assert.equal(
+    engine.revalidateScenarioReview(
+      review,
+      {
+        ...view,
+        units: view.units.map((unit) =>
+          unit.unitId === options[0].unitId
+            ? { ...unit, currentReport: null }
+            : unit,
+        ),
+      },
+      graph,
+      run.id,
+    ).status,
+    "unavailable",
+  );
+  assert.equal(
+    engine.baselineAlternatives(
+      source.snapshot(86, { ...run, seed: 27 }),
+      graph,
+    ).length,
+    0,
+  );
 });

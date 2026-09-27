@@ -590,6 +590,49 @@ button:disabled {
   font-size: 0.75rem;
   margin: 0 0 20px;
 }
+.scenario-analysis {
+  border: 1px solid #3b5864;
+  border-radius: 8px;
+  background: #13262e;
+  padding: 14px;
+  margin-bottom: 22px;
+}
+.scenario-analysis > p,
+.scenario-analysis > small {
+  color: #b4c8ce;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.scenario-analysis ol {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.scenario-analysis li {
+  border-top: 1px solid #35515b;
+  padding: 12px 0;
+  display: grid;
+  gap: 6px;
+}
+.scenario-analysis li strong {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.scenario-analysis li span,
+.scenario-analysis li small {
+  color: #b4c8ce;
+  font-size: 0.73rem;
+  line-height: 1.45;
+}
+.scenario-analysis li button {
+  justify-self: start;
+}
+.scenario-analysis .analysis-unavailable {
+  color: #e5c797;
+}
+.scenario-review .review-changed {
+  color: #f5d99a;
+}
 .unit-card {
   position: relative;
   border: 1px solid var(--border);
