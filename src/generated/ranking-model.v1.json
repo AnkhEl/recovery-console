@@ -1,0 +1,35 @@
+{
+  "version": "observation-ranker-v1",
+  "target": "first_available_unit_observation_within_90_seconds",
+  "featureNames": [
+    "static_route_minutes",
+    "junction_distance_500m",
+    "heading_alignment",
+    "report_age_90s",
+    "signal_lost",
+    "already_on_post",
+    "already_en_route",
+    "recent_observation_here",
+    "junction_1",
+    "junction_2",
+    "junction_3",
+    "junction_4",
+    "junction_5",
+    "junction_6",
+    "junction_7",
+    "junction_8"
+  ],
+  "weights": [
+    -2.52444227, -0.20210619, 0.75050977, 0, 0, 0.87616078, -0.21226341,
+    -0.00164118, 1.51325985, -0.80676316, 0.81056421, -0.80802884, -0.79520448,
+    -0.73190963, 0.45812203, 0.35996003
+  ],
+  "calibration": {
+    "method": "platt_logistic_v1",
+    "scoreMean": -3.89262979876528,
+    "scoreStd": 2.5945310479553,
+    "slope": 0.6477995553705653,
+    "intercept": -4.790285110564874
+  },
+  "trainedOn": "synthetic seeds 1-48; validation seeds 49-60"
+}

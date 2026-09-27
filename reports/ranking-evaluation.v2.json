@@ -1,0 +1,571 @@
+{
+  "experiment": "observation-ranker-v2",
+  "configurationSha256": "fba95ccb20d34a390caa1a15e8ed86bd80e2f23c51deb818218081fb06269a15",
+  "target": "first_available_unit_observation_within_90_seconds",
+  "label": "First valid unit observation available to the operator within 90 seconds after one candidate order; no observation has utility zero; earlier observations have higher utility.",
+  "baseline": "Transparent legal-route ETA using currently visible simulated congestion, last confirmed report and its age, reported heading, unit-report age, and junction approach coverage; unknown road congestion is assumed free-flow.",
+  "informationBoundary": "Browser inference uses only current confirmed vehicle and unit reports and their ages, currently displayed simulated traffic, available unit observations, active operator orders, and road-graph geometry. Future hidden vehicle truth is used only to generate offline labels.",
+  "splits": {
+    "train": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32
+    ],
+    "validation": [
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40
+    ],
+    "test": [
+      241,
+      242,
+      243,
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250,
+      251,
+      252,
+      253,
+      254,
+      255,
+      256,
+      257,
+      258,
+      259,
+      260,
+      261,
+      262,
+      263,
+      264,
+      265,
+      266,
+      267,
+      268,
+      269,
+      270,
+      271,
+      272
+    ]
+  },
+  "decisionSeconds": [
+    0,
+    35,
+    65,
+    95
+  ],
+  "outageCases": "Scheduled vehicle GPS loss 60-90s in all runs; training/validation outage families are scheduled-only and extended 45-105s; held-out families add early 30-75s or late 80-125s loss.",
+  "familyHoldout": {
+    "trainingAndValidation": {
+      "graphLayouts": [
+        0,
+        1
+      ],
+      "congestionPatterns": [
+        0,
+        1
+      ],
+      "outagePatterns": [
+        0,
+        1
+      ]
+    },
+    "test": {
+      "graphLayouts": [
+        2,
+        3
+      ],
+      "congestionPatterns": [
+        2,
+        3
+      ],
+      "outagePatterns": [
+        2,
+        3
+      ]
+    },
+    "graphLayoutMethod": "Deterministic short synthetic connector edges added to the same attributed OSM base graph; all original road edges and observation approaches remain. These are alternate topology fixtures, not mapped roads or independent city maps."
+  },
+  "priorExploratoryEvaluation": "Seeds 61-212 were inspected under superseded gate runs and are excluded from this family-held-out evaluation.",
+  "trainCases": 256,
+  "informativePairs": 658,
+  "selectedHyperparameters": {
+    "learningRate": 0.3,
+    "l2": 0,
+    "epochs": 80,
+    "validation": {
+      "scenarios": 64,
+      "eligible": 56,
+      "suppressedForStaleOrInvalidData": 8,
+      "actionable": 12,
+      "top1Hits": 7,
+      "top1ObservationRate": 0.125,
+      "top1HitRateOnActionable": 0.5833333333333334,
+      "top3ObservationRate": 0.14285714285714285,
+      "normalizedRegret": 0.5300353356890459
+    }
+  },
+  "heldOut": {
+    "familyActionability": [
+      {
+        "pattern": {
+          "layout": 2,
+          "congestion": 3,
+          "outage": 2
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 6
+      },
+      {
+        "pattern": {
+          "layout": 3,
+          "congestion": 2,
+          "outage": 3
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 6
+      },
+      {
+        "pattern": {
+          "layout": 2,
+          "congestion": 2,
+          "outage": 3
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 3
+      },
+      {
+        "pattern": {
+          "layout": 3,
+          "congestion": 3,
+          "outage": 2
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 3
+      },
+      {
+        "pattern": {
+          "layout": 2,
+          "congestion": 3,
+          "outage": 3
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 0
+      },
+      {
+        "pattern": {
+          "layout": 3,
+          "congestion": 2,
+          "outage": 2
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 8
+      },
+      {
+        "pattern": {
+          "layout": 2,
+          "congestion": 2,
+          "outage": 2
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 2
+      },
+      {
+        "pattern": {
+          "layout": 3,
+          "congestion": 3,
+          "outage": 3
+        },
+        "scenarios": 32,
+        "eligible": 24,
+        "actionable": 5
+      }
+    ],
+    "baseline": {
+      "all": {
+        "scenarios": 256,
+        "eligible": 192,
+        "suppressedForStaleOrInvalidData": 64,
+        "actionable": 33,
+        "top1Hits": 16,
+        "top1ObservationRate": 0.08333333333333333,
+        "top1HitRateOnActionable": 0.48484848484848486,
+        "top3ObservationRate": 0.125,
+        "normalizedRegret": 0.6009501187648458
+      },
+      "signalLoss": {
+        "scenarios": 128,
+        "eligible": 64,
+        "suppressedForStaleOrInvalidData": 64,
+        "actionable": 11,
+        "top1Hits": 4,
+        "top1ObservationRate": 0.0625,
+        "top1HitRateOnActionable": 0.36363636363636365,
+        "top3ObservationRate": 0.109375,
+        "normalizedRegret": 0.6586021505376344
+      },
+      "connected": {
+        "scenarios": 128,
+        "eligible": 128,
+        "suppressedForStaleOrInvalidData": 0,
+        "actionable": 22,
+        "top1Hits": 12,
+        "top1ObservationRate": 0.09375,
+        "top1HitRateOnActionable": 0.5454545454545454,
+        "top3ObservationRate": 0.1328125,
+        "normalizedRegret": 0.5553191489361701
+      }
+    },
+    "trained": {
+      "all": {
+        "scenarios": 256,
+        "eligible": 192,
+        "suppressedForStaleOrInvalidData": 64,
+        "actionable": 33,
+        "top1Hits": 12,
+        "top1ObservationRate": 0.0625,
+        "top1HitRateOnActionable": 0.36363636363636365,
+        "top3ObservationRate": 0.09375,
+        "normalizedRegret": 0.471496437054632
+      },
+      "signalLoss": {
+        "scenarios": 128,
+        "eligible": 64,
+        "suppressedForStaleOrInvalidData": 64,
+        "actionable": 11,
+        "top1Hits": 8,
+        "top1ObservationRate": 0.125,
+        "top1HitRateOnActionable": 0.7272727272727273,
+        "top3ObservationRate": 0.125,
+        "normalizedRegret": 0.15591397849462355
+      },
+      "connected": {
+        "scenarios": 128,
+        "eligible": 128,
+        "suppressedForStaleOrInvalidData": 0,
+        "actionable": 22,
+        "top1Hits": 4,
+        "top1ObservationRate": 0.03125,
+        "top1HitRateOnActionable": 0.18181818181818182,
+        "top3ObservationRate": 0.078125,
+        "normalizedRegret": 0.7212765957446807
+      }
+    },
+    "topChoiceImprovement": {
+      "method": "paired 95% percentile bootstrap, resampling whole seeds",
+      "iterations": 10000,
+      "seedClusters": 32,
+      "improvement": -0.020833333333333332,
+      "lower": -0.057291666666666664,
+      "upper": 0.015625,
+      "baselineRateInterval": {
+        "lower": 0.041666666666666664,
+        "upper": 0.13020833333333334
+      },
+      "trainedRateInterval": {
+        "lower": 0.026041666666666668,
+        "upper": 0.109375
+      }
+    },
+    "signalLossImprovement": {
+      "method": "paired 95% percentile bootstrap, resampling whole seeds",
+      "iterations": 10000,
+      "seedClusters": 32,
+      "improvement": 0.0625,
+      "lower": -0.015625,
+      "upper": 0.15625,
+      "baselineRateInterval": {
+        "lower": 0,
+        "upper": 0.140625
+      },
+      "trainedRateInterval": {
+        "lower": 0.03125,
+        "upper": 0.234375
+      }
+    },
+    "calibration": {
+      "method": "top-choice ten equal-width probability bins",
+      "count": 192,
+      "expectedCalibrationError": 0.03256128925623252,
+      "brierScore": 0.05938163131261284,
+      "bins": [
+        {
+          "count": 192,
+          "meanPredicted": 0.029938710743767482,
+          "observedRate": 0.0625
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        }
+      ]
+    },
+    "signalLossCalibration": {
+      "method": "top-choice ten equal-width probability bins",
+      "count": 64,
+      "expectedCalibrationError": 0.09547392142426148,
+      "brierScore": 0.11812076355494792,
+      "bins": [
+        {
+          "count": 64,
+          "meanPredicted": 0.029526078575738524,
+          "observedRate": 0.125
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        },
+        {
+          "count": 0,
+          "meanPredicted": null,
+          "observedRate": null
+        }
+      ]
+    },
+    "provenanceAndStaleData": {
+      "tests": {
+        "operatorVisibleFeatureContract": true,
+        "validObservationWindowDuringGpsLoss": true,
+        "estimatedVehicleReportSuppressed": true,
+        "staleVehicleReportSuppressed": true,
+        "futureVehicleReportSuppressed": true,
+        "unavailableUnitExcluded": true,
+        "estimatedUnitExcluded": true,
+        "futureObservationSuppressed": true
+      },
+      "passed": true
+    },
+    "updateInspections": {
+      "reportUpdateCases": 64,
+      "reportUpdateTopChoiceChanges": 13,
+      "trafficUpdateCases": 256,
+      "trafficUpdateTopChoiceChanges": 34,
+      "examples": [
+        {
+          "seed": 241,
+          "pattern": {
+            "layout": 2,
+            "congestion": 3,
+            "outage": 2
+          },
+          "update": "current congestion changed at 15s; reports held fixed",
+          "before": {
+            "unitId": "unit-1",
+            "objectiveId": "junction-1",
+            "probability": 0.028050903134616903
+          },
+          "after": {
+            "unitId": "unit-2",
+            "objectiveId": "junction-1",
+            "probability": 0.026591700975047525
+          }
+        },
+        {
+          "seed": 242,
+          "pattern": {
+            "layout": 3,
+            "congestion": 3,
+            "outage": 2
+          },
+          "update": "new confirmed report at 35s; traffic held fixed",
+          "before": {
+            "unitId": "unit-1",
+            "objectiveId": "junction-5",
+            "probability": 0.019382080147095283
+          },
+          "after": {
+            "unitId": "unit-2",
+            "objectiveId": "junction-7",
+            "probability": 0.02138917656187051
+          }
+        },
+        {
+          "seed": 243,
+          "pattern": {
+            "layout": 2,
+            "congestion": 3,
+            "outage": 3
+          },
+          "update": "current congestion changed at 15s; reports held fixed",
+          "before": {
+            "unitId": "unit-1",
+            "objectiveId": "junction-6",
+            "probability": 0.02326721017317402
+          },
+          "after": {
+            "unitId": "unit-3",
+            "objectiveId": "junction-1",
+            "probability": 0.024263739168296897
+          }
+        },
+        {
+          "seed": 243,
+          "pattern": {
+            "layout": 2,
+            "congestion": 3,
+            "outage": 3
+          },
+          "update": "current congestion changed at 30s; reports held fixed",
+          "before": {
+            "unitId": "unit-2",
+            "objectiveId": "junction-1",
+            "probability": 0.02772738972854768
+          },
+          "after": {
+            "unitId": "unit-3",
+            "objectiveId": "junction-1",
+            "probability": 0.027910767827609217
+          }
+        }
+      ]
+    }
+  },
+  "displayGate": {
+    "thresholds": {
+      "minimumTopChoiceObservationRateImprovement": 0.05,
+      "confidenceIntervalLowerMustExceedZero": true,
+      "maximumTopChoiceCalibrationError": 0.1,
+      "provenanceAndStaleDataChecksMustPass": true
+    },
+    "topChoiceImprovement": {
+      "method": "paired 95% percentile bootstrap, resampling whole seeds",
+      "iterations": 10000,
+      "seedClusters": 32,
+      "improvement": -0.020833333333333332,
+      "lower": -0.057291666666666664,
+      "upper": 0.015625,
+      "baselineRateInterval": {
+        "lower": 0.041666666666666664,
+        "upper": 0.13020833333333334
+      },
+      "trainedRateInterval": {
+        "lower": 0.026041666666666668,
+        "upper": 0.109375
+      }
+    },
+    "calibrationError": 0.03256128925623252,
+    "provenanceAndStaleDataChecksPassed": true,
+    "passed": false
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "version": "observation-ranker-v2",
+  "target": "first_available_unit_observation_within_90_seconds",
+  "featureNames": [
+    "current_traffic_route_minutes",
+    "junction_distance_500m",
+    "heading_alignment",
+    "report_age_90s",
+    "signal_lost",
+    "unit_report_age_10s",
+    "already_on_post",
+    "already_en_route",
+    "recent_observation_here",
+    "junction_approach_coverage",
+    "route_congestion_fraction",
+    "report_age_x_distance",
+    "report_age_x_coverage",
+    "junction_1",
+    "junction_2",
+    "junction_3",
+    "junction_4",
+    "junction_5",
+    "junction_6",
+    "junction_7",
+    "junction_8"
+  ],
+  "weights": [
+    -1.93567717, -0.11737465, 0.07010528, 0, 0, 0, 0.63779041, -0.04824179, 0,
+    0.29554943, -0.06057092, -0.00939521, 0.00444247, 1.20346833, -0.46449443,
+    0.47606876, -0.53900278, -0.57586829, -0.51267393, 0.29565341, 0.11684892
+  ],
+  "calibration": {
+    "method": "platt_logistic_v1",
+    "scoreMean": -3.0276861799230925,
+    "scoreStd": 1.9565128768786135,
+    "slope": 0.716925475920977,
+    "intercept": -4.709626625864998
+  },
+  "trainedOn": "synthetic vehicle seeds 1-32; validation seeds 33-40; graph layouts and congestion/outage families 0-1"
+}

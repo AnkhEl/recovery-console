@@ -1,0 +1,88 @@
+# Recovery Console
+
+An independent, simulated vehicle recovery coordination concept for an eventual Cartrack discussion. It is not a Cartrack product and connects to no tracker, dispatch service, or backend. The map uses real road geometry near Sandton; every vehicle position, unit report, incident event, and assignment is synthetic.
+
+## Run and verify
+
+Requires Node 26 (the version used here) and a WebGL-capable browser.
+
+```sh
+npm ci
+npm run dev
+npm run format
+npm run check
+npm test
+npm run build
+npm run preview
+```
+
+Open the Vite URL printed by `dev` or `preview`. The production output is `build/`. `npm run format` applies Prettier to authored code. `npm run check` enforces formatting, strict TypeScript checks, local asset validation, and scenario tests. Playwright scripts in `scripts/` can check a running server; install Chromium with `npx playwright install chromium` if needed. `scripts/coordination-review.mjs http://127.0.0.1:5173/` checks the current unit order, observation, and replay-branch flow. Older map review scripts contain assertions tied to the original fixed-route scenario and need updated fixture expectations before reuse.
+
+### WSL with Windows Chrome
+
+From a WSL terminal in this directory, run `npm ci` once and then `npm run dev -- --host 0.0.0.0`. Keep that terminal open. In Windows Chrome, open `http://localhost:5173/`. WSL normally forwards Linux web servers to Windows `localhost`; if your setup does not, use the WSL IPv4 address printed by Vite instead. Stop the server with Ctrl+C.
+
+For a development-only missing-report example, open `http://localhost:5173/?missingUnit=unit-2`. Unit 02 has no current report in this synthetic fixture; its card remains visible, but its map marker and camera focus are unavailable.
+
+For an observation that occurs **during** scheduled vehicle GPS loss, open `http://localhost:5173/?scenarioSeed=27`, assign Unit 02 to **Fredman Drive × Sandown Valley Crescent** at 00:00, and scrub to 01:03. The simulated unit observation is available while the confirmed GPS marker remains at its 00:55 report. The seed override exists only in development.
+
+## What the simulation shows
+
+- A three-minute incident with vehicle and response-unit reports every five seconds, synthetic traffic that changes every 15 seconds, local orders, a timeline, 1×/2×/4× playback, and reset.
+- Street map by default, aerial imagery and road labels, top-down and tilted Cesium views, selection and following. If imagery fails, a labelled local road-graph view shows the simulation.
+- The street view uses OpenStreetMap Carto tiles. Its road arrows and traffic-light symbols describe mapped roads, not live conditions. The bundled directed road graph supplies alternative legal paths and one-way restrictions. Synthetic congestion affects both the vehicle and units, their route choices, and unit ETAs. Neither road geometry nor ±15 m simulated reports establishes a precise lane position.
+- Red points mark simulated confirmed device reports. Purple dashed connections trace the simulated road route between consecutive reports and are **inferred**, not additional device reports. Cyan dashed lines and ETAs are simulated unit plans, and amber road segments are simulated congestion.
+- Arrows on vehicle and unit markers show headings at their latest simulated device reports, not predictions. The vehicle arrow disappears during signal loss while its last confirmed position remains visible.
+- A scheduled vehicle signal outage from 01:00 to 01:30, plus operator-controlled simulated loss and restoration. The marker stays at its **last confirmed device report**; its visible age increases. No inferred path crosses missing reports, and a resumed report starts a new path. No estimated position is shown as a GPS report.
+- Clicking a response-unit card or map marker selects its current confirmed report. An unavailable report has no marker or camera flight. Each unit starts from its own position. Choose a named junction or last confirmed vehicle position, then use **Assign and move** or **Retask**; **Release** resumes patrol. Unit 01 begins assigned but awaiting an objective. Orders change movement in the browser only.
+- A unit observation requires an ordered unit to hold within 20 m of its junction for three seconds, the vehicle to enter a designated visible approach within 75 m, and clear seeded visibility. The approximate approach becomes available to the operator two seconds later in the map and activity. This can happen during vehicle GPS loss; it never moves the last confirmed GPS marker or becomes a vehicle device report.
+- Replay uses a fixed seed and ordered actions. Rewind and make a new order or signal action to create an alternative in-memory run; the earlier run remains selectable. Reset clears alternatives.
+- A versioned offline observation-ranking experiment has been trained and evaluated. Its display gate failed, so the app does not show AI-generated options. The transparent baseline is a comparator in the experiment, not AI advice.
+- Separate device report time, server receipt time, and replay display time. The simulator generates the two report timestamps with the same value; a pilot contract must preserve their actual difference.
+
+The Top-down/Tilt control rotates around the ground point at the centre of the current map view. It keeps the selected vehicle or unit state, camera heading, and camera-to-focus distance. If you pan away from a marker, the centre of the panned area remains the focus. A tilted perspective can still make nearby roads look larger and distant roads look smaller than in top-down view; keeping the same camera distance cannot make the entire image appear at an identical scale. Top-down uses a 0.057° offset from exact vertical because Cesium cannot retain a defined heading at exact nadir.
+
+Selecting a vehicle or response unit, including by its map marker, flies to its reported position in a short transition. Clicking the already selected vehicle or unit starts that transition again. Fit All also flies smoothly to a top-down overview. Once a selection flight finishes, following shifts the camera with each new confirmed position while retaining any zoom or focus offset set by the operator. Replay seconds without a new report leave the camera untouched. During signal loss, vehicle following stays at the last confirmed report. Manual map gestures or the view-angle control cancel a flight so the operator keeps control.
+
+All actions and alternative runs are in browser memory and clear on refresh. Assigning a unit sends no instruction. The map is geographic, but every incident position, movement, traffic state, and observation is synthetic. For a short review path, assign Unit 03 to **5th Street × Norwich Close** at 00:00 and scrub to 01:00 to see a unit observation.
+
+The street tile layer is not limited to the incident region. A map is marked ready only when the active basemap has loaded usable imagery for the current view. During loading or tile failure, a labelled road-graph view covers the globe; imagery controls remain available to try the other provider. Network availability and provider coverage determine whether basemap imagery can be displayed.
+
+## Architecture
+
+The app uses React, TypeScript, Vite, and CesiumJS 1.145.0. `src/model.ts` defines report and event types. The active pure coordination simulator is `src/coordination.ts`, using `public/coordination-graph.json`; `src/scenario.ts` retains shared time/report helpers and the previous fixed-route test fixture. The offline-trained, browser-compatible ranker is isolated in `src/ranking.ts`. `src/App.tsx` owns replay runs and operator actions. `src/components/CesiumMap.tsx` owns only the viewer, imagery, camera and rendering. `src/components/mapImageryReady.ts` checks successful tiles from the current provider. Vite copies Cesium's `Workers`, `ThirdParty`, `Assets`, and `Widgets` directories and sets `CESIUM_BASE_URL` as in the [official Cesium Vite guidance](https://github.com/CesiumGS/cesium-vite-example).
+
+The original static prototype was reviewed and removed after development and production browser checks. Its recorded issues are in `BASELINE_DEFECTS.md`.
+
+## Phase 2 ranking experiment
+
+`npm run train:ranking` deterministically regenerates [the v3 browser-compatible model](src/generated/ranking-model.v3.json) and [its evaluation report](reports/ranking-evaluation.v3.json). Earlier v1/v2 files document exploratory runs and are not the approved display gate. The experiment uses synthetic data and local CPU only: no API key, hosted model, backend, or paid inference. `scripts/ranking-browser-review.mjs` confirms that the model scores candidates in a browser while gated advice stays hidden.
+
+A candidate is one unit, observation junction, and order time. Its target is the probability that the order produces a **valid unit observation available to the operator** within 90 simulated seconds. Labels come from counterfactual runs and require the Phase 1 junction geometry, three-second unit dwell, approach visibility, and two-second availability delay. Arrival alone and hidden vehicle proximity do not count. Earlier available observations carry more training utility; probability calibration uses the binary observation outcome. A valid unit observation during vehicle GPS loss can be positive without moving the last confirmed vehicle marker.
+
+The browser ranker is separate from the outcome generator. Its features use only confirmed vehicle and unit reports and their ages, current displayed simulated congestion, road-graph geometry, and active operator orders. It has no input for the hidden vehicle position, future reports or traffic, or internal vehicle branch scores. The transparent baseline uses directed legal-route ETA with current visible congestion, report age, junction approach coverage, and report heading. Unshown road segments are assumed free-flow for both baseline and model features. Both rank the same candidates; the baseline is scenario analysis, not AI.
+
+Training uses whole vehicle seed families 1–32 and validation/probability fitting uses 33–40. The final held-out families use untouched seeds 273–304. Each seed contributes two distinct combinations of graph, congestion, and outage family at order times 00:00, 00:35, 01:05, and 01:35; adjacent replay ticks never cross splits. Training and validation use graph/congestion/outage variants 0–1; testing uses variants 2–3. Graph variants add short **synthetic** connector edges while retaining all original roads and eight reachable observation junctions. They test topology sensitivity on one attributed Sandton graph, not independent city maps. Outage variants include the scheduled 01:00–01:30 loss plus distinct early, extended, or late manual loss. Seeds 61–272 were inspected in superseded experiments and excluded from this final gate.
+
+Advice eligibility requires a confirmed vehicle report no more than 30 seconds old, a confirmed unit report no more than 10 seconds old, report and receipt times no later than replay display time, and no future-dated observation in the operator view. GPS loss is eligible while the last confirmed report remains recent. Of **256** held-out decisions, **64** were suppressed for stale vehicle data; the remaining **192** form the gate denominator, including cases where no candidate could produce an observation.
+
+The model's top choice produced an observation in **12/192 (6.25%)**, versus **8/192 (4.17%)** for the baseline: **+2.08 percentage points**, with a paired 95% whole-seed bootstrap interval of **−1.56 to +5.73 percentage points**. Ranking regret was **0.553** for the model versus **0.742** for the baseline. Among **64 eligible signal-loss** decisions, the model reached **5/64 (7.81%)** versus baseline **2/64 (3.13%)**; the paired improvement interval was **0 to +10.94 percentage points**. A further **64** signal-loss decisions were suppressed for staleness. Only **33** eligible decisions overall, including **6** during signal loss, had any successful candidate.
+
+Top-choice probability calibration error was **0.032**, below the **0.10** gate limit; signal-loss calibration error was **0.048**. All top-choice probabilities fell in the lowest fixed-width bin, averaging **3.0%** against a **6.25%** observed rate, so the scalar calibration result is limited. Provenance, operator-visible feature, and stale-data checks passed. In controlled held-out inspections, the model's top choice changed after a confirmed-report update in **20/64** comparisons and after a current-traffic-only update in **23/256** comparisons; these are sensitivity checks, not real incidents.
+
+The approved display gate requires **at least +5 absolute percentage points** in top-choice observation rate over the baseline, a paired 95% improvement interval excluding zero, calibration error at most **0.10**, and passing data checks. The first two conditions **failed**. AI-generated options remain disabled; assignments and retasks remain explicit operator decisions. Results describe one synthetic vehicle policy on one base road network, and the small actionable signal-loss sample limits generalization.
+
+## Data and licences
+
+- CesiumJS 1.145.0 is Apache-2.0. See [Cesium licence](public/CESIUM-LICENSE.md) and [third-party notices](public/CESIUM-THIRD-PARTY.json); both are copied into the production build.
+- Street tiles are requested directly from `tile.openstreetmap.org` for this low-volume local prototype, under the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/). Keep normal browser caching and referrer behaviour; do not bulk download. A pilot needs a suitable contracted tile provider. If street tiles fail, the operator sees a labelled illustrative diagram and can switch to Esri World Imagery. Esri World Transportation labels remain available in aerial mode. Credits stay visible in Cesium.
+- The active road graph in `public/coordination-graph.json` was extracted from OpenStreetMap roads near Sandton on 2026-09-26. It is ODbL data, credited in the map and fallback. Traffic, unit positions, vehicle positions and observations are generated locally and are synthetic. The older `public/route.json` OSRM route remains only for fixed-route scenario tests. Review OSM data terms for pilot distribution.
+- Fonts load from Google Fonts with local fallbacks.
+
+[God's Eye View](https://github.com/bilawalsidhu/gods-eye-view) was inspiration, not source material for this app. Its [source licence](https://github.com/bilawalsidhu/gods-eye-view/blob/main/LICENSE) is MIT, but the licence explicitly excludes bundled third-party data and models. Its [package manifest](https://github.com/bilawalsidhu/gods-eye-view/blob/main/package.json) includes live-source, model, and rendering dependencies beyond this focused simulator, and its [data-source inventory](https://github.com/bilawalsidhu/gods-eye-view/blob/main/DATA_SOURCES.md) includes provider-specific terms. Its general map architecture is useful reference material; no layer, code, asset, or dataset was copied. Any future reuse should review the exact component dependency tree and individual asset or provider terms first.
+
+## Remaining work for a Cartrack pilot
+
+Agree on authorised data contracts and access controls, including device and receipt timestamps, accuracy, connectivity, report provenance, unit status, and retention. Add authenticated incidents, durable activity and audit records, acknowledgement workflows, and a contracted map-tile service. Validate map coverage, labels, camera behaviour, mobile devices, and provider terms with recovery operators. A possible later backend is Laravel, PostgreSQL/PostGIS, and Laravel Reverb for authenticated live updates. AI-assisted decision support is a separate research phase: evaluate options against recorded or simulated scenarios, state uncertainty, and leave assignments and operational decisions with trained operators.
+
+Current limitations: there is no backend, tracker connection, durable state, live officer communication, operational route service, GPS uncertainty visualization beyond accuracy text, or AI recommendation. Unit observations use graph-defined approach visibility rather than building-level sightlines. The browser build is large because Cesium is bundled; production loading should be profiled before a pilot.
