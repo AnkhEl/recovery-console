@@ -18,6 +18,8 @@ import {
   distance,
 } from "./scenario";
 
+export const COORDINATION_SIMULATOR_VERSION = "coordination-simulator-v2";
+
 export type Objective = {
   id: string;
   name: string;
@@ -66,6 +68,7 @@ export type UnitObservation = {
   directionDegrees: number;
 };
 export interface CoordinationSnapshot extends ScenarioSnapshot {
+  simulatorVersion: typeof COORDINATION_SIMULATOR_VERSION;
   objectives: Objective[];
   assignedUnitIds: string[];
   unitObjectives: Record<string, Objective>;
@@ -349,6 +352,7 @@ export class CoordinatedIncidentSource {
     let latestUnitReports: ResponseUnitState[] = [];
     let incomingVehicleEdge: Edge | null = null;
     for (let t = 0; t <= displaySecond; t++) {
+      let vehicleApproachEdge: Edge | null = null;
       for (const order of run.actions.filter((action) => action.second === t)) {
         const unit = units.find((candidate) => candidate.id === order.unitId);
         if (!unit) continue;
@@ -486,6 +490,9 @@ export class CoordinatedIncidentSource {
         }
         if (vehicle.edge) {
           const current = vehicle.edge;
+          // Keep the edge traversed this tick even if move() reaches its end
+          // and clears vehicle.edge before the observation check below.
+          vehicleApproachEdge = current;
           if (
             move(vehicle, current, this.graph, t, trafficSeed, trafficPattern)
           ) {
@@ -496,7 +503,7 @@ export class CoordinatedIncidentSource {
       }
       // A unit must already be stationary at its ordered junction. The vehicle must
       // approach on a connected edge whose final segment is locally visible.
-      if (vehicle.edge)
+      if (vehicleApproachEdge)
         for (const unit of units) {
           const objective = unit.objective;
           if (
@@ -508,8 +515,8 @@ export class CoordinatedIncidentSource {
           )
             continue;
           if (
-            vehicle.edge.to !== objective.nodeId ||
-            !objective.visibleApproachEdgeIds?.includes(vehicle.edge.id)
+            vehicleApproachEdge.to !== objective.nodeId ||
+            !objective.visibleApproachEdgeIds?.includes(vehicleApproachEdge.id)
           )
             continue;
           if (
@@ -530,7 +537,7 @@ export class CoordinatedIncidentSource {
             unitId: unit.id,
             unitName: unit.name,
             junction: objective,
-            approachName: vehicle.edge.name,
+            approachName: vehicleApproachEdge.name,
             observedSecond: t,
             availableSecond: t + 2,
             directionDegrees: vehicle.headingDegrees,
@@ -671,6 +678,7 @@ export class CoordinatedIncidentSource {
       });
     }
     return {
+      simulatorVersion: COORDINATION_SIMULATOR_VERSION,
       displaySecond,
       displayTimestamp: displayTimestamp(displaySecond),
       reportAgeSeconds: displaySecond - lastReportSecond,

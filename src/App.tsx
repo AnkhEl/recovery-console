@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CesiumMap, type CameraRequest } from "./components/CesiumMap";
 import type { ActivityEvent, Coordinates, Outage } from "./model";
 import {
+  COORDINATION_SIMULATOR_VERSION,
   CoordinatedIncidentSource,
   CoordinationGraph,
   type Order,
@@ -702,8 +703,8 @@ export function App() {
               </select>
             </label>
             <span>
-              Seeded simulation · alternative runs remain in this browser
-              session
+              Seeded simulation · {COORDINATION_SIMULATOR_VERSION} · alternative
+              runs remain in this browser session
             </span>
           </div>
           <div className="playback-row">

@@ -142,3 +142,31 @@ test("versioned model scores deterministically and rejects feature drift", () =>
     engine.modelScore({ ...model, version: "unknown" }, candidate),
   );
 });
+
+test("Unit 03's zero-second Sandton Drive route starts at that junction", () => {
+  const scenario = {
+    ...run,
+    seed: 273,
+    actions: [
+      {
+        id: "prior-273",
+        second: 0,
+        unitId: "unit-3",
+        objectiveId: "junction-3",
+        kind: "assign",
+      },
+    ],
+  };
+  const view = source.snapshot(0, scenario);
+  const junction = view.objectives.find((item) => item.id === "junction-8");
+  const unit = view.units.find((item) => item.unitId === "unit-3");
+  assert.deepEqual(unit.currentReport.coordinates, junction.coordinates);
+  const candidate = engine
+    .rankingCandidates(view, graph)
+    .find(
+      (item) => item.unitId === "unit-3" && item.objectiveId === "junction-8",
+    );
+  assert.equal(candidate.action, "retask");
+  assert.equal(candidate.trafficRouteSeconds, 0);
+  assert.equal(candidate.features[0], 0);
+});

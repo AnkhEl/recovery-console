@@ -683,6 +683,14 @@ if (process.argv.includes("--inspect-updates")) {
   process.exit(0);
 }
 
+// V3 weights and evaluation belong to the previous observation sampler.
+// A future experiment must use new model and report versions before training
+// against the v2 simulator, so these historical artifacts cannot be overwritten.
+if (engine.COORDINATION_SIMULATOR_VERSION !== "coordination-simulator-v1")
+  throw new Error(
+    "observation-ranker-v3 belongs to coordination-simulator-v1; version the model and report before training with the current simulator",
+  );
+
 console.log("Generating synthetic counterfactual labels...");
 const trainCases = dataset(splits.train, "train");
 const validationCases = dataset(splits.validation, "validation");
