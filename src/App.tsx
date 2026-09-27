@@ -15,6 +15,7 @@ import {
   revalidateScenarioReview,
   type ScenarioReview,
 } from "./scenarioAnalysis";
+import { teamCoverageView } from "./teamCoverage";
 import {
   clock,
   displayTimestamp,
@@ -128,6 +129,11 @@ export function App() {
   const alternatives = useMemo(
     () =>
       source && snapshot ? baselineAlternatives(snapshot, source.graph) : [],
+    [source, snapshot],
+  );
+  const teamCoverage = useMemo(
+    () =>
+      source && snapshot ? teamCoverageView(snapshot, source.graph) : null,
     [source, snapshot],
   );
   if (!snapshot || !source)
@@ -654,6 +660,119 @@ export function App() {
               are unknown. No order is placed by this analysis.
             </small>
           </section>
+          {teamCoverage && (
+            <section className="team-coverage" aria-label="Team coverage">
+              <div className="section-kicker">TEAM COVERAGE</div>
+              <p>
+                Configured sight lines across current orders. These are separate
+                possible next orders, not a coordinated dispatch plan.
+              </p>
+              <p className="team-evidence">
+                Last confirmed vehicle GPS report {snapshot.reportAgeSeconds}s
+                old.
+                {snapshot.observations.length > 0 && (
+                  <>
+                    {" "}
+                    Latest simulated unit observation:{" "}
+                    {snapshot.observations.at(-1)?.junction.name}, observed at{" "}
+                    {elapsed(snapshot.observations.at(-1)!.observedSecond)} and
+                    available at{" "}
+                    {elapsed(snapshot.observations.at(-1)!.availableSecond)}.
+                  </>
+                )}{" "}
+                {snapshot.connectivity === "signal_lost"
+                  ? "GPS is lost; the vehicle's current position and next route are unknown."
+                  : "The next vehicle route is unknown."}
+              </p>
+              {!teamCoverage.hasWellSupportedOrder && (
+                <p className="team-no-order">
+                  No well-supported additional order at this replay moment.
+                </p>
+              )}
+              {teamCoverage.alternatives.length ? (
+                <ol>
+                  {teamCoverage.alternatives.map((option) => (
+                    <li
+                      key={`${option.candidate.unitId}:${option.candidate.objectiveId}`}
+                    >
+                      <strong>
+                        {option.candidate.unitName} →{" "}
+                        {option.candidate.objectiveName}
+                      </strong>
+                      <span className="team-evidence-label">
+                        {option.exploratory
+                          ? "Exploratory coverage alternative · no recent local approach observation"
+                          : "Recent local approach observed · future route still unknown"}
+                      </span>
+                      <span>
+                        Configured approaches: +
+                        {option.gainedApproachIds.length} gained, −
+                        {option.lostApproachIds.length} lost
+                        {option.uncertainOverlapIds.length > 0 &&
+                          ` · ${option.uncertainOverlapIds.length} may replace uncertain coverage`}
+                        {option.uncertainLostApproachIds.length > 0 &&
+                          ` · ${option.uncertainLostApproachIds.length} uncertain approaches relinquished`}
+                        .
+                      </span>
+                      <span>
+                        Route ETA about{" "}
+                        {Math.ceil(option.candidate.trafficRouteSeconds)}s ·
+                        earliest ready {elapsed(option.earliestReadySecond)} ·
+                        earliest possible information{" "}
+                        {elapsed(option.earliestPossibleAvailabilitySecond)} if
+                        a valid sighting occurs (window ends{" "}
+                        {elapsed(option.evaluationEndSecond)}).
+                      </span>
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setPlaying(false);
+                          setScenarioReview(
+                            createScenarioReview(
+                              snapshot,
+                              option.candidate,
+                              run.id,
+                              option,
+                            ),
+                          );
+                          setReviewChanged(false);
+                          setReviewUnavailable(false);
+                        }}
+                        aria-label={`Review team coverage ${option.candidate.action} ${option.candidate.unitName} to ${option.candidate.objectiveName}`}
+                      >
+                        Inspect alternative
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="analysis-unavailable">
+                  No timely nonduplicate alternative is eligible with current
+                  confirmed reports.
+                </p>
+              )}
+              {teamCoverage.duplicateExample && (
+                <p className="team-demoted">
+                  Not promoted:{" "}
+                  {teamCoverage.duplicateExample.candidate.unitName}
+                  {" → "}
+                  {teamCoverage.duplicateExample.candidate.objectiveName} adds
+                  no configured approach beyond another unit's confirmed post
+                  and would lose{" "}
+                  {teamCoverage.duplicateExample.lostApproachIds.length} at its
+                  current confirmed post.
+                  {!teamCoverage.duplicateExample.fitsWindow &&
+                    " Its earliest possible information also falls outside the remaining evaluation window."}
+                </p>
+              )}
+              <small>
+                Coverage means configured approaches only. A vehicle traversal,
+                75 m range, visibility, and the two-second delivery delay are
+                still required. No option predicts a sighting or places an
+                order.
+              </small>
+            </section>
+          )}
           <div id="unitList">
             {snapshot.units.map((u) => {
               const assigned = assignedAt(u.unitId);
@@ -930,7 +1049,9 @@ export function App() {
             aria-label="Review scenario analysis option"
           >
             <div className="section-kicker">
-              SCENARIO ANALYSIS · ORDER REVIEW
+              {scenarioReview.team
+                ? "TEAM COVERAGE · ORDER REVIEW"
+                : "SCENARIO ANALYSIS · ORDER REVIEW"}
             </div>
             <h2>
               {scenarioReview.candidate.action === "retask"
@@ -966,6 +1087,22 @@ export function App() {
                   another approach, traffic may change, or visibility may block
                   a sighting.
                 </p>
+                {scenarioReview.team && (
+                  <p>
+                    Configured approach change: +
+                    {scenarioReview.team.gainedApproachIds.length} gained, −
+                    {scenarioReview.team.lostApproachIds.length} lost. Earliest
+                    possible information{" "}
+                    {elapsed(
+                      scenarioReview.team.earliestPossibleAvailabilitySecond,
+                    )}{" "}
+                    if a valid sighting occurs; evaluation window ends{" "}
+                    {elapsed(scenarioReview.team.evaluationEndSecond)}.{" "}
+                    {scenarioReview.team.exploratory
+                      ? "Exploratory: no recent local approach observation supports this destination."
+                      : "A recent local approach was observed; the future route remains unknown."}
+                  </p>
+                )}
                 {hasFutureActions && (
                   <p>
                     Confirming creates an alternative run at this replay time;

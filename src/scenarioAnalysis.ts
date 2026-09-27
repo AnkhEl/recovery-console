@@ -1,4 +1,5 @@
 import type { CoordinationGraph } from "./coordination";
+import { assessTeamCandidate, type TeamCoverageOption } from "./teamCoverage";
 import {
   rankingCandidates,
   type OperatorView,
@@ -10,6 +11,7 @@ export type ScenarioReview = {
   runId: string;
   displaySecond: number;
   basis: string;
+  team?: TeamCoverageOption;
 };
 
 const candidateKey = (candidate: RankingCandidate) =>
@@ -39,6 +41,7 @@ function reviewBasis(
   view: OperatorView,
   candidate: RankingCandidate,
   runId: string,
+  team?: TeamCoverageOption,
 ) {
   return JSON.stringify({
     runId,
@@ -51,7 +54,9 @@ function reviewBasis(
     objectives: view.objectives,
     unitObjectives: view.unitObjectives,
     traffic: view.trafficSegments.map((segment) => [segment.id, segment.level]),
+    observations: view.observations,
     candidate,
+    team,
   });
 }
 
@@ -59,12 +64,14 @@ export function createScenarioReview(
   view: OperatorView,
   candidate: RankingCandidate,
   runId: string,
+  team?: TeamCoverageOption,
 ): ScenarioReview {
   return {
     candidate,
     runId,
     displaySecond: view.displaySecond,
-    basis: reviewBasis(view, candidate, runId),
+    basis: reviewBasis(view, candidate, runId, team),
+    team,
   };
 }
 
@@ -81,7 +88,10 @@ export function revalidateScenarioReview(
     (candidate) => candidateKey(candidate) === candidateKey(review.candidate),
   );
   if (!current) return { status: "unavailable" };
-  const updated = createScenarioReview(view, current, runId);
+  const team = review.team
+    ? assessTeamCandidate(view, current, graph)
+    : undefined;
+  const updated = createScenarioReview(view, current, runId, team);
   return {
     status: updated.basis === review.basis ? "current" : "refreshed",
     review: updated,

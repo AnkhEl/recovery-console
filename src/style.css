@@ -630,6 +630,45 @@ button:disabled {
 .scenario-analysis .analysis-unavailable {
   color: #e5c797;
 }
+.team-coverage {
+  border: 1px solid #665738;
+  border-radius: 8px;
+  background: #29251c;
+  padding: 14px;
+  margin-bottom: 22px;
+}
+.team-coverage > p,
+.team-coverage > small,
+.team-coverage li span {
+  color: #d7cdbb;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.team-coverage .team-no-order,
+.team-coverage .team-demoted {
+  color: #f0d595;
+}
+.team-coverage ol {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.team-coverage li {
+  border-top: 1px solid #655536;
+  padding: 12px 0;
+  display: grid;
+  gap: 6px;
+}
+.team-coverage li strong {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.team-coverage li .team-evidence-label {
+  color: #f0d595;
+}
+.team-coverage li button {
+  justify-self: start;
+}
 .scenario-review .review-changed {
   color: #f5d99a;
 }
