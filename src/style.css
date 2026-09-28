@@ -672,6 +672,139 @@ button:disabled {
 .scenario-review .review-changed {
   color: #f5d99a;
 }
+.operator-plan {
+  border: 1px solid #517377;
+  border-radius: 8px;
+  background: #14262e;
+  padding: 14px;
+  margin-bottom: 22px;
+}
+.operator-plan p,
+.operator-plan .saved-plans,
+.operator-plan .plan-composer {
+  color: #c3d4d5;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.operator-plan .saved-plans {
+  border-top: 1px solid #3e5b60;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.saved-plan-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.saved-plan-row button {
+  font-size: 0.74rem;
+}
+.plan-composer {
+  border-top: 1px solid #3e5b60;
+  margin-top: 16px;
+  padding-top: 12px;
+}
+.plan-composer h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.plan-composer label,
+.plan-choice {
+  display: grid;
+  gap: 5px;
+}
+.plan-composer input,
+.plan-composer select,
+.run-comparison input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid #527078;
+  border-radius: 5px;
+  background: #192d37;
+  color: var(--text);
+}
+.plan-choice {
+  border-top: 1px solid #3e5b60;
+  margin-top: 13px;
+  padding-top: 12px;
+}
+.plan-choice label {
+  margin-top: 5px;
+}
+.operator-plan .branch-actions {
+  flex-wrap: wrap;
+}
+.plan-issues,
+.operator-plan-review .plan-issues {
+  color: #f5c774 !important;
+}
+.operator-plan-review {
+  width: min(740px, 100%);
+}
+.plan-review-orders {
+  padding-left: 22px;
+}
+.plan-review-orders li span {
+  display: block;
+  font-size: 0.84rem;
+}
+.operator-plan-review .review-changed {
+  color: #f5d99a;
+}
+.operator-plan-review details {
+  border: 1px solid #405a64;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 0.83rem;
+}
+.operator-plan-review summary {
+  cursor: pointer;
+}
+.run-comparison {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 15px;
+  font-size: 0.8rem;
+}
+.run-comparison > p {
+  color: var(--muted);
+}
+.run-comparison > label {
+  display: inline-grid;
+  gap: 5px;
+  margin-right: 12px;
+  color: var(--muted);
+}
+.run-comparison input {
+  max-width: 110px;
+}
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 13px;
+}
+.comparison-run {
+  border: 1px solid #3c5266;
+  border-radius: 7px;
+  background: #172638;
+  padding: 12px;
+}
+.comparison-run p,
+.comparison-run span,
+.comparison-run li {
+  color: #b7c9d8;
+  line-height: 1.5;
+}
+.comparison-run .comparison-incompatible {
+  color: #e6c889;
+}
+.comparison-run ul {
+  padding-left: 17px;
+}
 .unit-card {
   position: relative;
   border: 1px solid var(--border);

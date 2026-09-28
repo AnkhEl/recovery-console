@@ -17,6 +17,15 @@ import {
 } from "./scenarioAnalysis";
 import { teamCoverageView } from "./teamCoverage";
 import {
+  assessOperatorPlan,
+  compareRunBasis,
+  linkedPlanOrders,
+  planBaseRun,
+  plansInRun,
+  type PlanDraft,
+  type PlanReview,
+} from "./operatorPlan";
+import {
   clock,
   displayTimestamp,
   DURATION,
@@ -64,6 +73,13 @@ export function App() {
   );
   const [reviewChanged, setReviewChanged] = useState(false);
   const [reviewUnavailable, setReviewUnavailable] = useState(false);
+  const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
+  const [planReview, setPlanReview] = useState<PlanReview | null>(null);
+  const [planReviewChanged, setPlanReviewChanged] = useState(false);
+  const [comparisonSecond, setComparisonSecond] = useState(0);
+  const [comparedThrough, setComparedThrough] = useState<
+    Record<string, number>
+  >({});
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null),
     [following, setFollowing] = useState(false),
     [cameraRequest, setCameraRequest] = useState<CameraRequest | null>(null),
@@ -136,6 +152,35 @@ export function App() {
       source && snapshot ? teamCoverageView(snapshot, source.graph) : null,
     [source, snapshot],
   );
+  const currentPlans = useMemo(() => plansInRun(run), [run]);
+  const draftBaseRun = useMemo(
+    () =>
+      planDraft?.runId === run.id
+        ? planBaseRun(run, planDraft.second, planDraft.revisionPlanId)
+        : null,
+    [run, planDraft],
+  );
+  const draftView = useMemo(
+    () =>
+      source && draftBaseRun && planDraft
+        ? source.snapshot(planDraft.second, draftBaseRun)
+        : null,
+    [source, draftBaseRun, planDraft],
+  );
+  const draftAssessment = useMemo(
+    () =>
+      source && draftBaseRun && draftView && planDraft
+        ? assessOperatorPlan(draftView, source.graph, planDraft, draftBaseRun)
+        : null,
+    [source, draftBaseRun, draftView, planDraft],
+  );
+  useEffect(() => {
+    if (!playing) return;
+    setComparedThrough((items) => ({
+      ...items,
+      [activeRunId]: Math.max(items[activeRunId] ?? 0, displaySecond),
+    }));
+  }, [playing, activeRunId, displaySecond]);
   if (!snapshot || !source)
     return (
       <div className="loading">
@@ -277,6 +322,19 @@ export function App() {
     setToast("Simulation order recorded. No instruction was sent.");
   };
   const orderUnit = (id: string, kind: Order["kind"]) => {
+    if (
+      run.actions.some(
+        (action) =>
+          action.second === displaySecond &&
+          action.unitId === id &&
+          action.planId,
+      )
+    ) {
+      setToast(
+        "This unit has a linked plan order now. Revise the plan or choose a later replay time.",
+      );
+      return;
+    }
     const objectiveId =
       objectiveSelections[id] ?? snapshot.unitObjectives[id]?.id;
     if (kind !== "release" && !objectiveId) {
@@ -333,10 +391,141 @@ export function App() {
     setReviewChanged(false);
     setReviewUnavailable(false);
   };
+  const beginOperatorPlan = () => {
+    setPlaying(false);
+    setPlanDraft({
+      runId: run.id,
+      second: displaySecond,
+      name: `Plan ${runs.length}`,
+      choices: [
+        { unitId: "", objectiveId: "" },
+        { unitId: "", objectiveId: "" },
+      ],
+      revisionPlanId: null,
+    });
+    setPlanReview(null);
+    setPlanReviewChanged(false);
+  };
+  const reviseOperatorPlan = (plan: ReturnType<typeof plansInRun>[number]) => {
+    setPlaying(false);
+    setTime(plan.second);
+    setComparisonSecond(plan.second);
+    setPlanDraft({
+      runId: run.id,
+      second: plan.second,
+      name: `${plan.name} revision`,
+      choices: plan.orders
+        .map((order) => ({
+          unitId: order.unitId,
+          objectiveId: order.objectiveId ?? "",
+        }))
+        .slice(0, 2) as PlanDraft["choices"],
+      revisionPlanId: plan.id,
+    });
+    setPlanReview(null);
+    setPlanReviewChanged(false);
+  };
+  const reviewOperatorPlan = () => {
+    if (
+      !planDraft ||
+      planDraft.runId !== run.id ||
+      time < planDraft.second ||
+      displaySecond !== planDraft.second ||
+      !draftBaseRun ||
+      !draftView
+    ) {
+      setToast("Return to the plan's selected replay time before review.");
+      return;
+    }
+    setPlaying(false);
+    setPlanReview(
+      assessOperatorPlan(draftView, source.graph, planDraft, draftBaseRun),
+    );
+    setPlanReviewChanged(false);
+  };
+  const confirmOperatorPlan = () => {
+    if (
+      !planReview ||
+      planReview.draft.runId !== run.id ||
+      displaySecond !== planReview.draft.second
+    ) {
+      setPlanReviewChanged(true);
+      return;
+    }
+    const draft = planReview.draft;
+    const base = planBaseRun(run, draft.second, draft.revisionPlanId);
+    const currentView = source.snapshot(draft.second, base);
+    const checked = assessOperatorPlan(currentView, source.graph, draft, base);
+    if (checked.issues.length) {
+      setPlanReview(checked);
+      setPlanReviewChanged(true);
+      return;
+    }
+    if (checked.basis !== planReview.basis) {
+      setPlanReview(checked);
+      setPlanReviewChanged(true);
+      return;
+    }
+    const id = `run-${runs.length + 1}`;
+    const planId = `${id}-plan-${draft.second}`;
+    const orders = linkedPlanOrders(
+      checked.items,
+      draft.second,
+      planId,
+      draft.name.trim(),
+    );
+    setRuns((items) => [
+      ...items,
+      {
+        ...base,
+        id,
+        name: draft.name.trim(),
+        parentId: run.id,
+        branchSecond: draft.second,
+        actions: [...base.actions, ...orders],
+      },
+    ]);
+    setActiveRunId(id);
+    setComparisonSecond(draft.second);
+    setComparedThrough((items) => ({ ...items, [id]: draft.second }));
+    setPlanDraft(null);
+    setPlanReview(null);
+    setPlanReviewChanged(false);
+    setToast(
+      "Two simulated orders recorded as one operator plan. No instructions were sent.",
+    );
+  };
+  const saveNoOrderReference = () => {
+    const plan = currentPlans.find((item) => item.second === comparisonSecond);
+    if (!plan) return;
+    const base = planBaseRun(run, comparisonSecond, plan.id);
+    const id = `run-${runs.length + 1}`;
+    setRuns((items) => [
+      ...items,
+      {
+        ...base,
+        id,
+        name: `No new orders at ${elapsed(comparisonSecond)}`,
+        parentId: run.id,
+        branchSecond: comparisonSecond,
+      },
+    ]);
+    setActiveRunId(id);
+    setPlaying(false);
+    setTime(comparisonSecond);
+    setPlanDraft(null);
+    setPlanReview(null);
+    setComparedThrough((items) => ({ ...items, [id]: comparisonSecond }));
+  };
   const seek = (value: number) => {
     playbackGenerationRef.current++;
     setPlaying(false);
-    setTime(Math.max(0, Math.min(DURATION, value)));
+    const next = Math.max(0, Math.min(DURATION, value));
+    setTime(next);
+    setComparedThrough((items) => ({
+      ...items,
+      [activeRunId]: Math.max(items[activeRunId] ?? 0, Math.floor(next)),
+    }));
   };
   const reset = () => {
     playbackGenerationRef.current++;
@@ -359,6 +548,11 @@ export function App() {
     setScenarioReview(null);
     setReviewChanged(false);
     setReviewUnavailable(false);
+    setPlanDraft(null);
+    setPlanReview(null);
+    setPlanReviewChanged(false);
+    setComparisonSecond(0);
+    setComparedThrough({});
     setSelectedUnit(null);
     setFollowing(false);
     setCameraRequest(null);
@@ -434,13 +628,20 @@ export function App() {
       kind: "operator_action" as const,
       scenarioSecond: a.second,
       displayTimestamp: displayTimestamp(a.second),
-      text: `${INITIAL_UNITS.find((u) => u.id === a.unitId)?.name} ${a.kind === "release" ? "released" : `${a.kind === "retask" ? "retasked" : "assigned"} to ${a.objectiveId === "last-confirmed" ? "last confirmed vehicle position" : (snapshot.objectives.find((o) => o.id === a.objectiveId)?.name ?? "junction")}`} (simulation only).`,
+      text: `${a.planId ? `${a.planName ?? "Operator plan"} · ` : ""}${INITIAL_UNITS.find((u) => u.id === a.unitId)?.name} ${a.kind === "release" ? "released" : `${a.kind === "retask" ? "retasked" : "assigned"} to ${a.objectiveId === "last-confirmed" ? "last confirmed vehicle position" : (snapshot.objectives.find((o) => o.id === a.objectiveId)?.name ?? "junction")}`} (simulation only).`,
     })),
   ]
     .filter((e) => e.scenarioSecond <= time)
     .sort((a, b) => b.scenarioSecond - a.scenarioSecond)
     .slice(0, 5);
   const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const approachLabel = (id: string) => {
+    const edge = source.graph.edges.find((candidate) => candidate.id === id);
+    const objective = snapshot.objectives.find((item) =>
+      item.visibleApproachEdgeIds?.includes(id),
+    );
+    return `${edge?.name ?? "Road approach"} toward ${objective?.name ?? "junction"}`;
+  };
   return (
     <>
       <header className="topbar">
@@ -773,6 +974,166 @@ export function App() {
               </small>
             </section>
           )}
+          <section className="operator-plan" aria-label="Operator plan">
+            <div className="section-kicker">OPERATOR PLAN</div>
+            <p>
+              Author two simulated orders for the same replay second. Coverage
+              describes configured approaches, not a predicted sighting.
+            </p>
+            <button className="secondary" onClick={beginOperatorPlan}>
+              Build two-unit plan at {elapsed(displaySecond)}
+            </button>
+            {currentPlans.length > 0 && (
+              <div className="saved-plans">
+                <strong>Plans in this run</strong>
+                {currentPlans.map((plan) => (
+                  <div key={plan.id} className="saved-plan-row">
+                    <span>
+                      {plan.name} · {elapsed(plan.second)}
+                    </span>
+                    <button
+                      className="quiet"
+                      onClick={() => reviseOperatorPlan(plan)}
+                      aria-label={`Revise ${plan.name}`}
+                    >
+                      Revise plan
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {planDraft?.runId === run.id && (
+              <div className="plan-composer">
+                <h3>
+                  {planDraft.revisionPlanId
+                    ? "Revise linked plan"
+                    : "New two-unit plan"}
+                </h3>
+                <p>
+                  Decision time {elapsed(planDraft.second)} in {run.name}.
+                  {displaySecond !== planDraft.second &&
+                    " Return to that replay time to review."}
+                </p>
+                <label>
+                  Plan name
+                  <input
+                    aria-label="Plan name"
+                    value={planDraft.name}
+                    onChange={(event) =>
+                      setPlanDraft((current) =>
+                        current
+                          ? { ...current, name: event.target.value }
+                          : current,
+                      )
+                    }
+                  />
+                </label>
+                {planDraft.choices.map((choice, index) => (
+                  <div className="plan-choice" key={index}>
+                    <strong>Order {index + 1}</strong>
+                    <label>
+                      Unit
+                      <select
+                        aria-label={`Plan order ${index + 1} unit`}
+                        value={choice.unitId}
+                        onChange={(event) =>
+                          setPlanDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  choices: current.choices.map((item, at) =>
+                                    at === index
+                                      ? { ...item, unitId: event.target.value }
+                                      : item,
+                                  ) as PlanDraft["choices"],
+                                }
+                              : current,
+                          )
+                        }
+                      >
+                        <option value="">Choose unit</option>
+                        {draftView?.units.map((unit) => (
+                          <option key={unit.unitId} value={unit.unitId}>
+                            {unit.unitName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Named junction
+                      <select
+                        aria-label={`Plan order ${index + 1} junction`}
+                        value={choice.objectiveId}
+                        onChange={(event) =>
+                          setPlanDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  choices: current.choices.map((item, at) =>
+                                    at === index
+                                      ? {
+                                          ...item,
+                                          objectiveId: event.target.value,
+                                        }
+                                      : item,
+                                  ) as PlanDraft["choices"],
+                                }
+                              : current,
+                          )
+                        }
+                      >
+                        <option value="">Choose junction</option>
+                        {draftView?.objectives.map((objective) => (
+                          <option key={objective.id} value={objective.id}>
+                            {objective.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ))}
+                {draftAssessment?.issues.length ? (
+                  <p className="plan-issues" role="status">
+                    {draftAssessment.issues.join(" ")}
+                  </p>
+                ) : (
+                  <p className="team-evidence">
+                    Both orders are eligible for review at this replay time.
+                  </p>
+                )}
+                <p className="muted">
+                  {draftBaseRun?.actions.filter(
+                    (action) => action.second === planDraft.second,
+                  ).length ?? 0}{" "}
+                  existing same-second orders stay before this plan.{" "}
+                  {
+                    run.actions.filter(
+                      (action) => action.second > planDraft.second,
+                    ).length
+                  }{" "}
+                  later unit orders stay in the saved run.
+                </p>
+                <div className="branch-actions">
+                  <button
+                    className="secondary"
+                    onClick={() => setPlanDraft(null)}
+                  >
+                    Cancel plan draft
+                  </button>
+                  <button
+                    className="primary"
+                    disabled={
+                      displaySecond !== planDraft.second ||
+                      Boolean(draftAssessment?.issues.length)
+                    }
+                    onClick={reviewOperatorPlan}
+                  >
+                    Review combined plan
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
           <div id="unitList">
             {snapshot.units.map((u) => {
               const assigned = assignedAt(u.unitId);
@@ -926,6 +1287,8 @@ export function App() {
                 onChange={(event) => {
                   setPlaying(false);
                   setActiveRunId(event.target.value);
+                  setPlanDraft(null);
+                  setPlanReview(null);
                 }}
               >
                 {runs.map((item) => (
@@ -1000,6 +1363,131 @@ export function App() {
               {manualActive ? "Restore signal" : "Simulate signal loss"}
             </button>
           </div>
+          {runs.length > 1 && (
+            <section className="run-comparison" aria-label="Compare runs">
+              <div className="section-kicker">RUN COMPARISON</div>
+              <p>
+                Compare confirmed simulation runs from the same pre-decision
+                state. Outcomes appear only after replaying each run to this
+                display time.
+              </p>
+              <label>
+                Comparison decision second
+                <input
+                  type="number"
+                  min="0"
+                  max="180"
+                  step="1"
+                  value={comparisonSecond}
+                  onChange={(event) =>
+                    setComparisonSecond(
+                      Math.max(
+                        0,
+                        Math.min(DURATION, Number(event.target.value) || 0),
+                      ),
+                    )
+                  }
+                />
+              </label>
+              {currentPlans.some(
+                (plan) => plan.second === comparisonSecond,
+              ) && (
+                <button className="secondary" onClick={saveNoOrderReference}>
+                  Save no-new-order reference at {elapsed(comparisonSecond)}
+                </button>
+              )}
+              <div className="comparison-grid">
+                {runs.map((item) => {
+                  const reasons = compareRunBasis(
+                    run,
+                    item,
+                    comparisonSecond,
+                    displaySecond,
+                  );
+                  const revealed =
+                    (comparedThrough[item.id] ?? 0) >= displaySecond;
+                  const showOutcome =
+                    reasons.length === 0 &&
+                    displaySecond > comparisonSecond &&
+                    !playing &&
+                    revealed;
+                  const observations = showOutcome
+                    ? source
+                        .snapshot(displaySecond, item)
+                        .observations.filter(
+                          (observation) =>
+                            observation.observedSecond > comparisonSecond &&
+                            observation.availableSecond <=
+                              Math.min(
+                                displaySecond,
+                                comparisonSecond + 90,
+                                DURATION,
+                              ),
+                        )
+                    : [];
+                  return (
+                    <article key={item.id} className="comparison-run">
+                      <strong>{item.name}</strong>
+                      {reasons.length > 0 ? (
+                        <p className="comparison-incompatible">
+                          Cannot compare: {reasons.join(" ")}
+                        </p>
+                      ) : displaySecond <= comparisonSecond ? (
+                        <p>
+                          Advance past {elapsed(comparisonSecond)} to reveal
+                          outcomes.
+                        </p>
+                      ) : playing ? (
+                        <p>Pause replay to compare outcomes at this time.</p>
+                      ) : !revealed ? (
+                        <button
+                          className="secondary"
+                          onClick={() => {
+                            setPlaying(false);
+                            setActiveRunId(item.id);
+                            setComparedThrough((states) => ({
+                              ...states,
+                              [item.id]: Math.max(
+                                states[item.id] ?? 0,
+                                displaySecond,
+                              ),
+                            }));
+                          }}
+                        >
+                          Replay {item.name} to {elapsed(displaySecond)}
+                        </button>
+                      ) : (
+                        <div className="comparison-outcome">
+                          <span>
+                            Simulated replay outcome · available by{" "}
+                            {elapsed(displaySecond)}
+                          </span>
+                          {observations.length ? (
+                            <ul>
+                              {observations.map((observation) => (
+                                <li key={observation.id}>
+                                  {observation.unitName} at{" "}
+                                  {observation.junction.name} · observed{" "}
+                                  {elapsed(observation.observedSecond)} ·
+                                  available{" "}
+                                  {elapsed(observation.availableSecond)}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p>
+                              No valid observation available within the
+                              90-second window.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
         </section>
       </main>
       {roadmap && (
@@ -1037,6 +1525,137 @@ export function App() {
                 uncertainty, and leave decisions with trained operators
               </li>
             </ol>
+          </div>
+        </div>
+      )}
+      {planReview && (
+        <div className="dialog-backdrop">
+          <div
+            className="roadmap-dialog operator-plan-review"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Review operator plan"
+          >
+            <div className="section-kicker">
+              OPERATOR PLAN · COMBINED REVIEW
+            </div>
+            <h2>{planReview.draft.name}</h2>
+            {planReviewChanged && (
+              <p className="review-changed" role="status">
+                Replay information or the selected time changed. Review the
+                updated plan at {elapsed(planReview.draft.second)} before
+                confirming again.
+              </p>
+            )}
+            <p>
+              Two simulated orders at {elapsed(planReview.draft.second)} in{" "}
+              {run.name}. Existing unrelated orders at that same second stay
+              first. The two plan orders then apply in ascending unit ID order.
+              Confirmation saves a separate run.
+            </p>
+            <ol className="plan-review-orders">
+              {[...planReview.items]
+                .sort(
+                  (a, b) =>
+                    a.unitId.localeCompare(b.unitId) ||
+                    a.objectiveId.localeCompare(b.objectiveId),
+                )
+                .map((item) => (
+                  <li key={item.unitId}>
+                    <strong>
+                      {item.kind === "retask" ? "Retask" : "Assign"}{" "}
+                      {item.unitName} → {item.objectiveName}
+                    </strong>
+                    <span>
+                      Confirmed unit report{" "}
+                      {Math.floor(item.unitReportAgeSeconds)}s old ·
+                      current-traffic legal-route ETA about{" "}
+                      {Math.ceil(item.routeSeconds)}s
+                    </span>
+                    <span>
+                      Earliest ready {elapsed(item.earliestReadySecond)} ·
+                      earliest possible information{" "}
+                      {elapsed(item.earliestInformationSecond)}
+                    </span>
+                  </li>
+                ))}
+            </ol>
+            <p>
+              Combined configured approaches: {planReview.coverage.before}{" "}
+              before → {planReview.coverage.after} with this plan; +
+              {planReview.coverage.gained.length} gained, −
+              {planReview.coverage.lostConfirmed.length} lost from fresh
+              reported near-post positions, −
+              {planReview.coverage.lostUncertain.length} from uncertain posts.
+              Target-to-target overlap{" "}
+              {planReview.coverage.targetOverlap.length}; overlap with retained
+              posts {planReview.coverage.incumbentOverlap.length}.
+            </p>
+            <details>
+              <summary>Inspect approach changes</summary>
+              <p>
+                Gained:{" "}
+                {planReview.coverage.gained.map(approachLabel).join("; ") ||
+                  "none"}
+              </p>
+              <p>
+                Lost from fresh reported near-post positions:{" "}
+                {planReview.coverage.lostConfirmed
+                  .map(approachLabel)
+                  .join("; ") || "none"}
+              </p>
+              <p>
+                Lost from uncertain posts:{" "}
+                {planReview.coverage.lostUncertain
+                  .map(approachLabel)
+                  .join("; ") || "none"}
+              </p>
+              <p>
+                Overlapping targets:{" "}
+                {planReview.coverage.targetOverlap
+                  .map(approachLabel)
+                  .join("; ") || "none"}
+              </p>
+            </details>
+            <p>
+              Last confirmed simulated vehicle GPS report{" "}
+              {planReview.vehicleReportAgeSeconds}s old.{" "}
+              {planReview.signalLost
+                ? "GPS is lost; the current vehicle position and next route are unknown."
+                : "The next vehicle route is unknown."}{" "}
+              Current simulated traffic may change. The window ends{" "}
+              {elapsed(planReview.evaluationEndSecond)}.
+            </p>
+            <p>
+              Readiness and coverage are possibilities only. A visible vehicle
+              approach, 75 m range, dwell and availability rules must still be
+              met. This review does not reveal a future observation.
+            </p>
+            {run.actions.some(
+              (action) => action.second > planReview.draft.second,
+            ) && (
+              <p>
+                Later unit orders remain in the saved run and are excluded from
+                this new alternative.
+              </p>
+            )}
+            {planReview.issues.length > 0 && (
+              <p className="plan-issues" role="status">
+                Cannot confirm either order: {planReview.issues.join(" ")}
+              </p>
+            )}
+            <div className="branch-actions">
+              <button className="secondary" onClick={() => setPlanReview(null)}>
+                Close plan review
+              </button>
+              <button
+                className="primary"
+                disabled={planReview.issues.length > 0}
+                onClick={confirmOperatorPlan}
+              >
+                Confirm simulated plan
+              </button>
+            </div>
           </div>
         </div>
       )}

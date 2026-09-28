@@ -33,6 +33,8 @@ export type Order = {
   unitId: string;
   kind: "assign" | "retask" | "release";
   objectiveId?: string;
+  planId?: string;
+  planName?: string;
 };
 export type ScenarioRun = {
   id: string;
