@@ -571,12 +571,44 @@ button:disabled {
   border-left: 1px solid var(--border);
   overflow: auto;
 }
-.units-heading h2 {
-  font-weight: 500;
-  font-size: 1.15rem;
-  margin: 11px 0 5px;
+.units-heading {
+  margin-bottom: 12px;
 }
-.units-heading h2 span {
+.collapsible-heading {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.collapsible-heading button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.collapsible-heading button:hover {
+  background: transparent;
+  color: var(--mint);
+}
+.section-chevron {
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--muted);
+}
+.collapsible-content[hidden] {
+  display: none;
+}
+.collapsible-content:not([hidden]) {
+  padding-top: 12px;
+}
+.section-count {
   display: inline-block;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.75rem;
@@ -588,7 +620,18 @@ button:disabled {
 }
 .unit-caption {
   font-size: 0.75rem;
-  margin: 0 0 20px;
+  margin: 0 0 14px;
+}
+.units-section {
+  margin-bottom: 18px;
+}
+.units-section .collapsible-heading {
+  font-size: 1rem;
+}
+.units-section .collapsible-heading button {
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
 }
 .scenario-analysis {
   border: 1px solid #3b5864;
@@ -597,8 +640,8 @@ button:disabled {
   padding: 14px;
   margin-bottom: 22px;
 }
-.scenario-analysis > p,
-.scenario-analysis > small {
+.scenario-analysis .collapsible-content > p,
+.scenario-analysis .collapsible-content > small {
   color: #b4c8ce;
   font-size: 0.75rem;
   line-height: 1.5;
@@ -637,8 +680,8 @@ button:disabled {
   padding: 14px;
   margin-bottom: 22px;
 }
-.team-coverage > p,
-.team-coverage > small,
+.team-coverage .collapsible-content > p,
+.team-coverage .collapsible-content > small,
 .team-coverage li span {
   color: #d7cdbb;
   font-size: 0.75rem;
@@ -1281,31 +1324,9 @@ dialog h2 {
   .units-panel {
     grid-column: 1/-1;
     grid-row: 3;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 25px;
     border-left: 0;
     border-top: 1px solid var(--border);
     padding: 24px;
-  }
-  .units-heading,
-  .unit-caption {
-    grid-column: 1;
-  }
-  .units-heading {
-    grid-row: 1;
-  }
-  .unit-caption {
-    grid-row: 2;
-  }
-  .units-panel #unitList {
-    grid-column: 1;
-    grid-row: 3;
-  }
-  .activity {
-    grid-column: 2;
-    grid-row: 1/4;
-    margin-top: 0;
   }
   .replay-panel {
     grid-row: 2;

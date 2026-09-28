@@ -15,6 +15,7 @@ try {
   page.on("pageerror", (error) => errors.push(String(error)));
   await page.goto(url, { waitUntil: "domcontentloaded" });
   const analysis = page.getByRole("region", { name: "Scenario analysis" });
+  await analysis.getByRole("button", { name: "Scenario analysis" }).click();
   await analysis
     .getByRole("button", { name: /Review (assign|retask)/ })
     .first()

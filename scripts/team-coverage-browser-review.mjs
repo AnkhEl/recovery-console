@@ -26,6 +26,7 @@ try {
   await slider.fill("63");
 
   const team = page.getByRole("region", { name: "Team coverage" });
+  await team.getByRole("button", { name: "Team coverage" }).click();
   const details = await team.innerText();
   assert.match(details, /No well-supported additional order/);
   assert.match(
@@ -67,7 +68,7 @@ try {
     before + 1,
   );
   assert.equal(await helena.count(), 0);
-  assert.match(await team.innerText(), /TEAM COVERAGE/);
+  assert.match(await team.innerText(), /Team coverage/i);
 
   await page.getByRole("button", { name: "Reset scenario" }).click();
   await slider.fill("86");

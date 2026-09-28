@@ -15,6 +15,7 @@ try {
   page.on("pageerror", (error) => errors.push(String(error)));
   await page.goto(url, { waitUntil: "domcontentloaded" });
   const composer = page.getByRole("region", { name: "Operator plan" });
+  await composer.getByRole("button", { name: "Operator plan" }).click();
   await composer.getByRole("button", { name: /Build two-unit plan/ }).waitFor();
   const slider = page.getByRole("slider", { name: "Scenario time in seconds" });
   const runs = page.getByRole("combobox", { name: "Scenario run" });

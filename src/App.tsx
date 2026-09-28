@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CesiumMap, type CameraRequest } from "./components/CesiumMap";
 import type { ActivityEvent, Coordinates, Outage } from "./model";
 import {
@@ -37,6 +37,54 @@ import {
 
 function formatCoordinates(p: Coordinates) {
   return `${Math.abs(p[1]).toFixed(4)}° S, ${p[0].toFixed(4)}° E`;
+}
+type PanelSectionId = "scenario" | "team" | "plan" | "units";
+function CollapsiblePanel({
+  id,
+  title,
+  count,
+  className,
+  expanded,
+  onToggle,
+  children,
+}: {
+  id: PanelSectionId;
+  title: string;
+  count?: number;
+  className: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className={className} aria-label={title}>
+      <h2 className="collapsible-heading">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={`${id}-panel-content`}
+          onClick={onToggle}
+        >
+          <span>
+            {title}
+            {count !== undefined && (
+              <span className="section-count">{count}</span>
+            )}
+          </span>
+          <span className="section-chevron" aria-hidden="true">
+            {expanded ? "−" : "+"}
+          </span>
+        </button>
+      </h2>
+      <div
+        id={`${id}-panel-content`}
+        className="collapsible-content"
+        hidden={!expanded}
+      >
+        {children}
+      </div>
+    </section>
+  );
 }
 const scenarioSeed = (() => {
   if (!import.meta.env.DEV) return 42;
@@ -80,6 +128,11 @@ export function App() {
   const [comparedThrough, setComparedThrough] = useState<
     Record<string, number>
   >({});
+  const [expandedSections, setExpandedSections] = useState<
+    Record<PanelSectionId, boolean>
+  >({ scenario: false, team: false, plan: false, units: true });
+  const toggleSection = (id: PanelSectionId) =>
+    setExpandedSections((current) => ({ ...current, [id]: !current[id] }));
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null),
     [following, setFollowing] = useState(false),
     [cameraRequest, setCameraRequest] = useState<CameraRequest | null>(null),
@@ -786,18 +839,15 @@ export function App() {
         />
         <aside className="units-panel">
           <div className="units-heading">
-            <div>
-              <div className="section-kicker">RESPONSE TEAM</div>
-              <h2>
-                Units in view <span>3</span>
-              </h2>
-            </div>
+            <div className="section-kicker">RESPONSE TEAM</div>
           </div>
-          <p className="muted unit-caption">
-            Choose an objective to send a simulated unit from its own position.
-          </p>
-          <section className="scenario-analysis" aria-label="Scenario analysis">
-            <div className="section-kicker">SCENARIO ANALYSIS</div>
+          <CollapsiblePanel
+            id="scenario"
+            title="Scenario analysis"
+            className="scenario-analysis"
+            expanded={expandedSections.scenario}
+            onToggle={() => toggleSection("scenario")}
+          >
             <p>
               Transparent baseline alternatives for this replay moment. Each is
               a separate simulated order, not a multi-unit plan.
@@ -860,10 +910,15 @@ export function App() {
               and mapped directed routes. Future traffic and vehicle movement
               are unknown. No order is placed by this analysis.
             </small>
-          </section>
+          </CollapsiblePanel>
           {teamCoverage && (
-            <section className="team-coverage" aria-label="Team coverage">
-              <div className="section-kicker">TEAM COVERAGE</div>
+            <CollapsiblePanel
+              id="team"
+              title="Team coverage"
+              className="team-coverage"
+              expanded={expandedSections.team}
+              onToggle={() => toggleSection("team")}
+            >
               <p>
                 Configured sight lines across current orders. These are separate
                 possible next orders, not a coordinated dispatch plan.
@@ -972,10 +1027,15 @@ export function App() {
                 still required. No option predicts a sighting or places an
                 order.
               </small>
-            </section>
+            </CollapsiblePanel>
           )}
-          <section className="operator-plan" aria-label="Operator plan">
-            <div className="section-kicker">OPERATOR PLAN</div>
+          <CollapsiblePanel
+            id="plan"
+            title="Operator plan"
+            className="operator-plan"
+            expanded={expandedSections.plan}
+            onToggle={() => toggleSection("plan")}
+          >
             <p>
               Author two simulated orders for the same replay second. Coverage
               describes configured approaches, not a predicted sighting.
@@ -1133,123 +1193,140 @@ export function App() {
                 </div>
               </div>
             )}
-          </section>
-          <div id="unitList">
-            {snapshot.units.map((u) => {
-              const assigned = assignedAt(u.unitId);
-              const coordinates = validUnitPosition(u);
-              const currentReport = coordinates ? u.currentReport : null;
-              const activeObjective = snapshot.unitObjectives[u.unitId];
-              const planned = snapshot.plannedRoutes.find(
-                (route) => route.unitId === u.unitId,
-              );
-              return (
-                <article
-                  className={`unit-card ${selectedUnit === u.unitId ? "selected" : ""} ${coordinates ? "" : "unavailable"}`}
-                  key={u.unitId}
-                >
-                  <div className="unit-top">
-                    <button
-                      className="unit-select"
-                      onClick={() => selectUnit(u.unitId)}
-                      aria-pressed={selectedUnit === u.unitId}
-                    >
-                      <span className="unit-dot" />
-                      {u.unitName}
-                    </button>
-                    <span className={`unit-tag ${assigned ? "assigned" : ""}`}>
-                      {snapshot.unitStatuses[u.unitId] === "on_post"
-                        ? "On post"
-                        : snapshot.unitStatuses[u.unitId] === "en_route"
-                          ? "Responding"
-                          : assigned
-                            ? "Awaiting objective"
-                            : "Available"}
-                    </span>
-                  </div>
-                  <div
-                    className={`unit-coordinates ${coordinates ? "" : "unavailable"}`}
+          </CollapsiblePanel>
+          <CollapsiblePanel
+            id="units"
+            title="Units in view"
+            count={snapshot.units.length}
+            className="units-section"
+            expanded={expandedSections.units}
+            onToggle={() => toggleSection("units")}
+          >
+            <p className="muted unit-caption">
+              Choose an objective to send a simulated unit from its own
+              position.
+            </p>
+            <div id="unitList">
+              {snapshot.units.map((u) => {
+                const assigned = assignedAt(u.unitId);
+                const coordinates = validUnitPosition(u);
+                const currentReport = coordinates ? u.currentReport : null;
+                const activeObjective = snapshot.unitObjectives[u.unitId];
+                const planned = snapshot.plannedRoutes.find(
+                  (route) => route.unitId === u.unitId,
+                );
+                return (
+                  <article
+                    className={`unit-card ${selectedUnit === u.unitId ? "selected" : ""} ${coordinates ? "" : "unavailable"}`}
+                    key={u.unitId}
                   >
-                    {coordinates
-                      ? formatCoordinates(coordinates)
-                      : "Position unavailable · no current confirmed report"}
-                  </div>
-                  <div className="unit-bottom">
-                    <small>
-                      {currentReport
-                        ? `Reported ${Math.floor(
-                            time -
-                              (Date.parse(currentReport.deviceTimestamp) -
-                                Date.parse(INCIDENT.openedAt)) /
-                                1000,
-                          )}s ago`
-                        : "Awaiting a valid unit report"}
-                    </small>
-                    <button
-                      className="assign-button"
-                      onClick={() =>
-                        orderUnit(u.unitId, assigned ? "release" : "assign")
-                      }
-                      aria-label={`${assigned ? "Release" : "Assign and move"} ${u.unitName}`}
-                      disabled={!assigned && !coordinates}
-                    >
-                      {assigned ? "Release" : "Assign and move"}
-                    </button>
-                  </div>
-                  <label className="objective-control">
-                    Objective
-                    <select
-                      aria-label={`${u.unitName} objective`}
-                      value={
-                        objectiveSelections[u.unitId] ??
-                        activeObjective?.id ??
-                        ""
-                      }
-                      onChange={(event) =>
-                        setObjectiveSelections((items) => ({
-                          ...items,
-                          [u.unitId]: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Choose objective</option>
-                      <option value="last-confirmed">
-                        Last confirmed vehicle position
-                      </option>
-                      {snapshot.objectives.map((objective) => (
-                        <option key={objective.id} value={objective.id}>
-                          {objective.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {activeObjective && (
-                    <div className="unit-plan">
-                      <strong>Objective: {activeObjective.name}</strong>
-                      <span>
-                        Simulated route · ETA{" "}
-                        {planned?.etaSeconds === null
-                          ? "unavailable"
-                          : `${planned?.etaSeconds ?? 0}s`}
+                    <div className="unit-top">
+                      <button
+                        className="unit-select"
+                        onClick={() => selectUnit(u.unitId)}
+                        aria-pressed={selectedUnit === u.unitId}
+                      >
+                        <span className="unit-dot" />
+                        {u.unitName}
+                      </button>
+                      <span
+                        className={`unit-tag ${assigned ? "assigned" : ""}`}
+                      >
+                        {snapshot.unitStatuses[u.unitId] === "on_post"
+                          ? "On post"
+                          : snapshot.unitStatuses[u.unitId] === "en_route"
+                            ? "Responding"
+                            : assigned
+                              ? "Awaiting objective"
+                              : "Available"}
                       </span>
                     </div>
-                  )}
-                  {assigned && (
-                    <button
-                      className="retask-button"
-                      onClick={() => orderUnit(u.unitId, "retask")}
-                      disabled={
-                        !coordinates ||
-                        !(objectiveSelections[u.unitId] ?? activeObjective?.id)
-                      }
+                    <div
+                      className={`unit-coordinates ${coordinates ? "" : "unavailable"}`}
                     >
-                      Retask {u.unitName}
-                    </button>
-                  )}
-                </article>
-              );
-            })}
-          </div>
+                      {coordinates
+                        ? formatCoordinates(coordinates)
+                        : "Position unavailable · no current confirmed report"}
+                    </div>
+                    <div className="unit-bottom">
+                      <small>
+                        {currentReport
+                          ? `Reported ${Math.floor(
+                              time -
+                                (Date.parse(currentReport.deviceTimestamp) -
+                                  Date.parse(INCIDENT.openedAt)) /
+                                  1000,
+                            )}s ago`
+                          : "Awaiting a valid unit report"}
+                      </small>
+                      <button
+                        className="assign-button"
+                        onClick={() =>
+                          orderUnit(u.unitId, assigned ? "release" : "assign")
+                        }
+                        aria-label={`${assigned ? "Release" : "Assign and move"} ${u.unitName}`}
+                        disabled={!assigned && !coordinates}
+                      >
+                        {assigned ? "Release" : "Assign and move"}
+                      </button>
+                    </div>
+                    <label className="objective-control">
+                      Objective
+                      <select
+                        aria-label={`${u.unitName} objective`}
+                        value={
+                          objectiveSelections[u.unitId] ??
+                          activeObjective?.id ??
+                          ""
+                        }
+                        onChange={(event) =>
+                          setObjectiveSelections((items) => ({
+                            ...items,
+                            [u.unitId]: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Choose objective</option>
+                        <option value="last-confirmed">
+                          Last confirmed vehicle position
+                        </option>
+                        {snapshot.objectives.map((objective) => (
+                          <option key={objective.id} value={objective.id}>
+                            {objective.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {activeObjective && (
+                      <div className="unit-plan">
+                        <strong>Objective: {activeObjective.name}</strong>
+                        <span>
+                          Simulated route · ETA{" "}
+                          {planned?.etaSeconds === null
+                            ? "unavailable"
+                            : `${planned?.etaSeconds ?? 0}s`}
+                        </span>
+                      </div>
+                    )}
+                    {assigned && (
+                      <button
+                        className="retask-button"
+                        onClick={() => orderUnit(u.unitId, "retask")}
+                        disabled={
+                          !coordinates ||
+                          !(
+                            objectiveSelections[u.unitId] ?? activeObjective?.id
+                          )
+                        }
+                      >
+                        Retask {u.unitName}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </CollapsiblePanel>
           <section className="activity">
             <div className="section-kicker">INCIDENT ACTIVITY</div>
             <ol>
