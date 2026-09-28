@@ -82,12 +82,16 @@ try {
     /Observed at 01:01; available at 01:03/,
   );
   assert.match(await comparison.innerText(), /Plan A[\s\S]*observed 01:01/);
+  assert.match(
+    await comparison.locator(".comparison-run").nth(1).innerText(),
+    /Decision 00:00 · 90-second deadline 01:30[\s\S]*Partial replay · available by 01:03/,
+  );
   await comparison
     .getByRole("button", { name: "Replay Original run to 01:03" })
     .click();
   assert.match(
-    await comparison.innerText(),
-    /Original run[\s\S]*No valid observation/,
+    await comparison.locator(".comparison-run").nth(0).innerText(),
+    /No valid observation available yet by 01:03; the window remains open until 01:30/,
   );
 
   await slider.fill("0");
@@ -103,8 +107,12 @@ try {
   assert.equal(await runs.locator("option").count(), 3);
   await slider.fill("90");
   assert.match(
-    await comparison.innerText(),
-    /Plan B[\s\S]*No valid observation/,
+    await comparison.locator(".comparison-run").nth(2).innerText(),
+    /Completed window · available by 01:30[\s\S]*No valid observation available by the 01:30 deadline/,
+  );
+  assert.doesNotMatch(
+    await comparison.locator(".comparison-run").nth(1).innerText(),
+    /Completed window|observed 01:01/,
   );
   await comparison
     .getByRole("button", { name: "Replay Plan A to 01:30" })
@@ -114,8 +122,16 @@ try {
     .getByRole("button", { name: "Replay Original run to 01:30" })
     .click();
   assert.match(
-    await comparison.innerText(),
-    /Original run[\s\S]*No valid observation/,
+    await comparison.locator(".comparison-run").nth(0).innerText(),
+    /No valid observation available by the 01:30 deadline/,
+  );
+  assert.match(
+    await comparison.locator(".comparison-run").nth(1).innerText(),
+    /observation in this run only by the deadline/,
+  );
+  assert.match(
+    await comparison.locator(".comparison-run").nth(2).innerText(),
+    /neither run had an observation by the deadline/,
   );
 
   await runs.selectOption("run-2");

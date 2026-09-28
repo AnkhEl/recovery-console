@@ -314,3 +314,89 @@ test("seed 27 plans replay deterministically and GPS loss retains the confirmed 
   source.snapshot(18, planA);
   assert.deepEqual(source.snapshot(90, planA), finish);
 });
+
+test("comparison window separates partial from completed seed 27 outcomes", () => {
+  const review = engine.assessOperatorPlan(
+    source.snapshot(0, original),
+    graph,
+    draft,
+    original,
+  );
+  const planA = {
+    ...original,
+    actions: engine.linkedPlanOrders(review.items, 0, "a", "Plan A"),
+  };
+  assert.equal(engine.comparisonDeadline(0), 90);
+  assert.equal(engine.comparisonDeadline(95), 180);
+  const completeView = source.snapshot(90, planA);
+  assert.equal(engine.comparisonObservations(completeView, 0, 62).length, 0);
+  assert.deepEqual(
+    engine
+      .comparisonObservations(completeView, 0, 63)
+      .map((item) => [item.observedSecond, item.availableSecond]),
+    [[61, 63]],
+  );
+  assert.equal(engine.comparisonObservations(completeView, 0, 90).length, 1);
+  assert.equal(
+    engine.comparisonObservations(source.snapshot(90, original), 0, 90).length,
+    0,
+  );
+});
+
+test("retasking an incumbent can remove an otherwise available observation", () => {
+  const control = {
+    ...original,
+    seed: 3010,
+    trafficSeed: 3010,
+    trafficPattern: 0,
+    outages: [{ start: 45, end: 105 }],
+    actions: [
+      {
+        id: "prior-unit-2-post",
+        second: 0,
+        unitId: "unit-2",
+        kind: "assign",
+        objectiveId: "junction-7",
+      },
+    ],
+  };
+  const retask = {
+    ...control,
+    id: "retask-run",
+    actions: [
+      ...control.actions,
+      {
+        id: "retask-unit-2",
+        second: 0,
+        unitId: "unit-2",
+        kind: "retask",
+        objectiveId: "junction-1",
+        planId: "retask-plan",
+      },
+      {
+        id: "assign-unit-3",
+        second: 0,
+        unitId: "unit-3",
+        kind: "assign",
+        objectiveId: "junction-1",
+        planId: "retask-plan",
+      },
+    ],
+  };
+  assert.deepEqual(engine.compareRunBasis(control, retask, 0, 90), []);
+  assert.deepEqual(
+    engine
+      .comparisonObservations(source.snapshot(90, control), 0, 90)
+      .map((item) => [
+        item.unitId,
+        item.junction.id,
+        item.observedSecond,
+        item.availableSecond,
+      ]),
+    [["unit-2", "junction-7", 53, 55]],
+  );
+  assert.equal(
+    engine.comparisonObservations(source.snapshot(90, retask), 0, 90).length,
+    0,
+  );
+});

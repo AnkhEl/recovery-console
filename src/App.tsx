@@ -19,6 +19,8 @@ import { teamCoverageView } from "./teamCoverage";
 import {
   assessOperatorPlan,
   compareRunBasis,
+  comparisonDeadline,
+  comparisonObservations,
   linkedPlanOrders,
   planBaseRun,
   plansInRun,
@@ -254,6 +256,27 @@ export function App() {
         {loadError || "Loading simulated incident…"}
       </div>
     );
+  const comparisonEnd = comparisonDeadline(comparisonSecond);
+  const comparisonThrough = Math.min(displaySecond, comparisonEnd);
+  const noNewPlanOrderRun = runs.find(
+    (item) =>
+      !item.actions.some(
+        (action) => action.second === comparisonSecond && action.planId,
+      ) &&
+      compareRunBasis(run, item, comparisonSecond, comparisonEnd).length === 0,
+  );
+  const controlComplete =
+    noNewPlanOrderRun &&
+    !playing &&
+    displaySecond >= comparisonEnd &&
+    (comparedThrough[noNewPlanOrderRun.id] ?? 0) >= comparisonEnd;
+  const controlObservations = controlComplete
+    ? comparisonObservations(
+        source.snapshot(comparisonEnd, noNewPlanOrderRun),
+        comparisonSecond,
+        comparisonEnd,
+      )
+    : null;
   const report = snapshot.lastConfirmedReport;
   const selectVehicle = () => {
     setSelectedUnit(null);
@@ -1461,8 +1484,8 @@ export function App() {
               <div className="section-kicker">RUN COMPARISON</div>
               <p>
                 Compare confirmed simulation runs from the same pre-decision
-                state. Outcomes appear only after replaying each run to this
-                display time.
+                state. Each result appears only after that run is replayed to
+                the displayed time or its evaluation deadline.
               </p>
               <label>
                 Comparison decision second
@@ -1495,36 +1518,44 @@ export function App() {
                     run,
                     item,
                     comparisonSecond,
-                    displaySecond,
+                    comparisonThrough,
                   );
                   const revealed =
-                    (comparedThrough[item.id] ?? 0) >= displaySecond;
+                    (comparedThrough[item.id] ?? 0) >= comparisonThrough;
                   const showOutcome =
                     reasons.length === 0 &&
                     displaySecond > comparisonSecond &&
                     !playing &&
                     revealed;
                   const observations = showOutcome
-                    ? source
-                        .snapshot(displaySecond, item)
-                        .observations.filter(
-                          (observation) =>
-                            observation.observedSecond > comparisonSecond &&
-                            observation.availableSecond <=
-                              Math.min(
-                                displaySecond,
-                                comparisonSecond + 90,
-                                DURATION,
-                              ),
-                        )
+                    ? comparisonObservations(
+                        source.snapshot(comparisonThrough, item),
+                        comparisonSecond,
+                        comparisonThrough,
+                      )
                     : [];
+                  const complete = comparisonThrough >= comparisonEnd;
+                  const newPlanOrders = item.actions.filter(
+                    (action) =>
+                      action.second === comparisonSecond && action.planId,
+                  ).length;
                   return (
                     <article key={item.id} className="comparison-run">
                       <strong>{item.name}</strong>
+                      <small className="comparison-window">
+                        Decision {elapsed(comparisonSecond)} ·{" "}
+                        {comparisonEnd === comparisonSecond + 90
+                          ? "90-second deadline"
+                          : "Replay-end deadline"}{" "}
+                        {elapsed(comparisonEnd)} · {newPlanOrders} linked plan{" "}
+                        {newPlanOrders === 1 ? "order" : "orders"}
+                      </small>
                       {reasons.length > 0 ? (
                         <p className="comparison-incompatible">
                           Cannot compare: {reasons.join(" ")}
                         </p>
+                      ) : comparisonEnd === comparisonSecond ? (
+                        <p>No evaluation time remains at this decision time.</p>
                       ) : displaySecond <= comparisonSecond ? (
                         <p>
                           Advance past {elapsed(comparisonSecond)} to reveal
@@ -1538,47 +1569,92 @@ export function App() {
                           onClick={() => {
                             setPlaying(false);
                             setActiveRunId(item.id);
+                            setTime(comparisonThrough);
                             setComparedThrough((states) => ({
                               ...states,
                               [item.id]: Math.max(
                                 states[item.id] ?? 0,
-                                displaySecond,
+                                comparisonThrough,
                               ),
                             }));
                           }}
                         >
-                          Replay {item.name} to {elapsed(displaySecond)}
+                          Replay {item.name} to {elapsed(comparisonThrough)}
                         </button>
                       ) : (
                         <div className="comparison-outcome">
                           <span>
-                            Simulated replay outcome · available by{" "}
-                            {elapsed(displaySecond)}
+                            {complete ? "Completed window" : "Partial replay"} ·
+                            available by {elapsed(comparisonThrough)}
                           </span>
                           {observations.length ? (
-                            <ul>
-                              {observations.map((observation) => (
-                                <li key={observation.id}>
-                                  {observation.unitName} at{" "}
-                                  {observation.junction.name} · observed{" "}
-                                  {elapsed(observation.observedSecond)} ·
-                                  available{" "}
-                                  {elapsed(observation.availableSecond)}
-                                </li>
-                              ))}
-                            </ul>
+                            <>
+                              <p>
+                                {observations.length} valid simulated unit{" "}
+                                {observations.length === 1
+                                  ? "observation"
+                                  : "observations"}
+                                {complete ? " by the deadline" : " so far"} ·
+                                first available{" "}
+                                {elapsed(
+                                  Math.min(
+                                    ...observations.map(
+                                      (observation) =>
+                                        observation.availableSecond,
+                                    ),
+                                  ),
+                                )}
+                              </p>
+                              <ul>
+                                {observations.map((observation) => (
+                                  <li key={observation.id}>
+                                    {observation.unitName} at{" "}
+                                    {observation.junction.name} · observed{" "}
+                                    {elapsed(observation.observedSecond)} ·
+                                    available{" "}
+                                    {elapsed(observation.availableSecond)}
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
                           ) : (
                             <p>
-                              No valid observation available within the
-                              90-second window.
+                              {complete
+                                ? `No valid observation available by the ${elapsed(comparisonEnd)} deadline.`
+                                : `No valid observation available yet by ${elapsed(comparisonThrough)}; the window remains open until ${elapsed(comparisonEnd)}.`}
                             </p>
                           )}
+                          {complete &&
+                            controlObservations &&
+                            noNewPlanOrderRun && (
+                              <p className="comparison-paired">
+                                {item.id === noNewPlanOrderRun.id
+                                  ? "Compatible no-new-plan-order control."
+                                  : `${noNewPlanOrderRun.name}: ${
+                                      observations.length &&
+                                      controlObservations.length
+                                        ? "both runs had an observation"
+                                        : observations.length
+                                          ? "observation in this run only"
+                                          : controlObservations.length
+                                            ? "observation in the control only"
+                                            : "neither run had an observation"
+                                    } by the deadline.`}
+                              </p>
+                            )}
                         </div>
                       )}
                     </article>
                   );
                 })}
               </div>
+              {!noNewPlanOrderRun && (
+                <p className="comparison-incompatible">
+                  No compatible run without new linked plan orders is available
+                  for a paired control at this decision time. Open a plan run to
+                  save its no-new-order reference.
+                </p>
+              )}
             </section>
           )}
         </section>

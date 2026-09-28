@@ -860,6 +860,12 @@ button:disabled {
   background: #172638;
   padding: 12px;
 }
+.comparison-window {
+  display: block;
+  margin-top: 6px;
+  color: #9fb9c9;
+  line-height: 1.5;
+}
 .comparison-run p,
 .comparison-run span,
 .comparison-run li {
@@ -868,6 +874,11 @@ button:disabled {
 }
 .comparison-run .comparison-incompatible {
   color: #e6c889;
+}
+.comparison-run .comparison-paired {
+  border-top: 1px solid #3c5266;
+  padding-top: 9px;
+  color: #9fe1d2;
 }
 .comparison-run ul {
   padding-left: 17px;

@@ -4,7 +4,7 @@ import type {
   Order,
   ScenarioRun,
 } from "./coordination";
-import { currentTrafficRoute } from "./ranking";
+import { currentTrafficRoute, OBSERVATION_HORIZON_SECONDS } from "./ranking";
 import { distance, DURATION } from "./scenario";
 import { validUnitPosition } from "./unitPosition";
 
@@ -46,6 +46,22 @@ export type PlanReview = {
   issues: string[];
   basis: string;
 };
+
+export const comparisonDeadline = (decisionSecond: number) =>
+  Math.min(decisionSecond + OBSERVATION_HORIZON_SECONDS, DURATION);
+
+export function comparisonObservations(
+  view: Pick<CoordinationSnapshot, "observations">,
+  decisionSecond: number,
+  throughSecond: number,
+) {
+  const end = Math.min(throughSecond, comparisonDeadline(decisionSecond));
+  return view.observations.filter(
+    (observation) =>
+      observation.observedSecond > decisionSecond &&
+      observation.availableSecond <= end,
+  );
+}
 
 export function plansInRun(run: ScenarioRun) {
   const grouped = new Map<
