@@ -135,11 +135,25 @@ export function App() {
     setExpandedSections((current) => ({ ...current, [id]: !current[id] }));
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null),
     [following, setFollowing] = useState(false),
+    [fullPageMap, setFullPageMap] = useState(false),
     [cameraRequest, setCameraRequest] = useState<CameraRequest | null>(null),
     [roadmap, setRoadmap] = useState(false),
     [toast, setToast] = useState("");
   const cameraSequenceRef = useRef(0);
   const playbackGenerationRef = useRef(0);
+  useEffect(() => {
+    if (!fullPageMap) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullPageMap(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [fullPageMap]);
   useEffect(() => {
     fetch("/coordination-graph.json")
       .then((r) => {
@@ -832,6 +846,8 @@ export function App() {
           snapshot={snapshot}
           selectedUnit={selectedUnit}
           following={following}
+          fullPageMap={fullPageMap}
+          onToggleFullPageMap={() => setFullPageMap((current) => !current)}
           cameraRequest={cameraRequest}
           onSelectUnit={selectUnit}
           onFollow={selectVehicle}

@@ -22,6 +22,8 @@ type Props = {
   snapshot: CoordinationSnapshot;
   selectedUnit: string | null;
   following: boolean;
+  fullPageMap: boolean;
+  onToggleFullPageMap: () => void;
   cameraRequest: CameraRequest | null;
   onSelectUnit: (id: string) => void;
   onFollow: () => void;
@@ -71,6 +73,8 @@ export function CesiumMap({
   snapshot,
   selectedUnit,
   following,
+  fullPageMap,
+  onToggleFullPageMap,
   cameraRequest,
   onSelectUnit,
   onFollow,
@@ -255,6 +259,20 @@ export function CesiumMap({
       setReady(false);
     };
   }, []);
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    const element = host.current;
+    if (!viewer || !element || !ready) return;
+    const resize = () => {
+      if (viewer.isDestroyed()) return;
+      viewer.resize();
+      viewer.scene.requestRender();
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(element);
+    resize();
+    return () => observer.disconnect();
+  }, [ready]);
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer || !ready) return;
@@ -699,7 +717,10 @@ export function CesiumMap({
     ((-26.097 - p[1]) / 0.011) * 800,
   ];
   return (
-    <section className="map-panel" aria-label="Incident map">
+    <section
+      className={`map-panel${fullPageMap ? " full-page-map" : ""}`}
+      aria-label="Incident map"
+    >
       <div
         ref={host}
         id="globe"
@@ -910,11 +931,30 @@ export function CesiumMap({
               : "ROAD GRAPH VIEW"}
         </span>
       </div>
+      <button
+        className="map-full-page-button"
+        aria-label={fullPageMap ? "Exit full-page map" : "Full-page map"}
+        aria-pressed={fullPageMap}
+        onClick={onToggleFullPageMap}
+      >
+        {fullPageMap ? "⤡" : "⤢"}{" "}
+        <span className="full-label">
+          {fullPageMap ? "Exit full-page map" : "Full-page map"}
+        </span>
+        <span className="short-label" aria-hidden="true">
+          {fullPageMap ? "Exit map" : "Full map"}
+        </span>
+      </button>
       <div className="map-toolbar" aria-label="Map controls">
-        <button onClick={onFit} disabled={mapStatus !== "ready"}>
+        <button
+          aria-label="Fit all map markers"
+          onClick={onFit}
+          disabled={mapStatus !== "ready"}
+        >
           ⊞ <span>Fit all</span>
         </button>
         <button
+          aria-label={tilted ? "Top-down map view" : "Tilt map view"}
           aria-pressed={tilted}
           disabled={mapStatus !== "ready"}
           onClick={() => {
@@ -938,10 +978,14 @@ export function CesiumMap({
         >
           ◈ <span>{tilted ? "Top-down" : "Tilt view"}</span>
         </button>
-        <button onClick={() => setStreet((v) => !v)}>
+        <button
+          aria-label={street ? "Aerial map" : "Street map"}
+          onClick={() => setStreet((v) => !v)}
+        >
           ▧ <span>{street ? "Aerial map" : "Street map"}</span>
         </button>
         <button
+          aria-label="Road labels"
           aria-pressed={labels}
           disabled={street}
           onClick={() => setLabels((v) => !v)}

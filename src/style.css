@@ -400,6 +400,23 @@ button:disabled {
   font-size: 0.75rem;
   padding: 7px 9px;
 }
+.map-full-page-button {
+  position: absolute;
+  z-index: 4;
+  top: 64px;
+  right: 22px;
+  background: #101d2de8;
+  box-shadow: 0 2px 7px #0003;
+  backdrop-filter: blur(8px);
+  font-size: 0.75rem;
+}
+.map-full-page-button[aria-pressed="true"] {
+  border-color: #8eacba;
+  color: #99efdf;
+}
+.map-full-page-button .short-label {
+  display: none;
+}
 .map-toolbar {
   position: absolute;
   top: 119px;
@@ -777,8 +794,15 @@ button:disabled {
 .plan-choice label {
   margin-top: 5px;
 }
-.operator-plan .branch-actions {
-  flex-wrap: wrap;
+.operator-plan .plan-composer .branch-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+.operator-plan .plan-composer .branch-actions button {
+  width: 100%;
+  margin: 0;
+  text-align: center;
 }
 .plan-issues,
 .operator-plan-review .plan-issues {
@@ -1273,6 +1297,16 @@ dialog h2 {
   .map-mode {
     display: none;
   }
+  .map-full-page-button {
+    top: 70px;
+    right: 15px;
+  }
+  .map-full-page-button .full-label {
+    display: none;
+  }
+  .map-full-page-button .short-label {
+    display: inline;
+  }
   .map-location strong span {
     display: none;
   }
@@ -1426,6 +1460,9 @@ dialog h2 {
     display: none;
   }
   .map-top {
+    top: 15px;
+  }
+  .map-full-page-button {
     top: 15px;
   }
   .map-toolbar {
@@ -1586,5 +1623,36 @@ dialog h2 {
   }
   .map-legend span {
     font-size: 0.65rem;
+  }
+}
+.map-panel.full-page-map {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
+.map-panel.full-page-map .map-help {
+  display: grid;
+  place-items: center;
+}
+@media (max-width: 620px) {
+  .map-panel.full-page-map .signal-overlay {
+    top: auto;
+    left: 15px;
+    right: 15px;
+    bottom: 180px;
+    width: auto;
+    transform: none;
+  }
+  .map-panel.full-page-map .observation-overlay {
+    top: auto;
+    left: 15px;
+    right: 15px;
+    bottom: 310px;
+    width: auto;
+    transform: none;
   }
 }
