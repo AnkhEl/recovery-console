@@ -65,8 +65,8 @@ test("seed 27 team view separates configured coverage from route evidence", () =
   assert(helena);
   assert.equal(helena.gainedApproachIds.length, 3);
   assert.equal(helena.lostApproachIds.length, 0);
-  assert.equal(helena.earliestReadySecond, 108);
-  assert.equal(helena.earliestPossibleAvailabilitySecond, 110);
+  assert.equal(helena.earliestReadySecond, 102);
+  assert.equal(helena.earliestPossibleAvailabilitySecond, 104);
   assert.equal(helena.exploratory, true);
   assert.equal(helena.recentLocalObservation, false);
 });
@@ -162,22 +162,49 @@ test("orders, observations, and traffic refresh reviewed team options", () => {
       (option) => option.candidate.objectiveId === "junction-6",
     );
   const review = engine.createScenarioReview(
-    view,
+    {
+      ...view,
+      observations: [
+        {
+          id: "available-test-observation",
+          unitId: "unit-2",
+          unitName: "Unit 02",
+          junction: graph.objectives.find((item) => item.id === "junction-7"),
+          approachName: "Fredman Drive",
+          observedSecond: 61,
+          availableSecond: 63,
+          directionDegrees: 45,
+          sightLineAssessment: "no_mapped_blockage_visibility_uncertain",
+        },
+      ],
+    },
     helena.candidate,
     run.id,
     helena,
   );
+  const observationView = {
+    ...view,
+    observations: [
+      {
+        id: "available-test-observation",
+        unitId: "unit-2",
+        unitName: "Unit 02",
+        junction: graph.objectives.find((item) => item.id === "junction-7"),
+        approachName: "Fredman Drive",
+        observedSecond: 61,
+        availableSecond: 63,
+        directionDegrees: 45,
+        sightLineAssessment: "no_mapped_blockage_visibility_uncertain",
+      },
+    ],
+  };
   assert.equal(
-    engine.revalidateScenarioReview(review, view, graph, run.id).status,
+    engine.revalidateScenarioReview(review, observationView, graph, run.id)
+      .status,
     "current",
   );
   assert.equal(
-    engine.revalidateScenarioReview(
-      review,
-      { ...view, observations: [] },
-      graph,
-      run.id,
-    ).status,
+    engine.revalidateScenarioReview(review, view, graph, run.id).status,
     "refreshed",
   );
   assert.equal(

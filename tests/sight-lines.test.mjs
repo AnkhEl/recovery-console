@@ -25,7 +25,7 @@ const graph = new engine.CoordinationGraph(graphFile);
 const scenario = {
   id: "sight-line-demo",
   name: "Synthetic sight-line demo",
-  seed: 27,
+  seed: 413,
   actions: [
     {
       id: "post-unit-2",
@@ -75,7 +75,7 @@ test("the frozen footprint extract has no crossing of a configured straight appr
     }
 });
 
-test("synthetic mapped obstruction removes the seed 27 GPS-loss sighting", () => {
+test("synthetic mapped obstruction removes the seed 413 GPS-loss sighting", () => {
   const clearSource = new engine.CoordinatedIncidentSource(
     graph,
     new Set(),
@@ -86,9 +86,9 @@ test("synthetic mapped obstruction removes the seed 27 GPS-loss sighting", () =>
     new Set(),
     engine.sightLineDataset("blocked"),
   );
-  const before = clearSource.snapshot(62, scenario);
-  const clear = clearSource.snapshot(63, scenario);
-  const blocked = blockedSource.snapshot(63, scenario);
+  const before = clearSource.snapshot(63, scenario);
+  const clear = clearSource.snapshot(64, scenario);
+  const blocked = blockedSource.snapshot(64, scenario);
   assert.equal(before.observations.length, 0);
   assert.deepEqual(
     clear.observations.map((item) => [
@@ -97,16 +97,16 @@ test("synthetic mapped obstruction removes the seed 27 GPS-loss sighting", () =>
       item.availableSecond,
       item.sightLineAssessment,
     ]),
-    [["unit-2", 61, 63, "no_mapped_blockage_visibility_uncertain"]],
+    [["unit-2", 62, 64, "no_mapped_blockage_visibility_uncertain"]],
   );
   assert.deepEqual(blocked.observations, []);
   assert.deepEqual(clear.lastConfirmedReport, blocked.lastConfirmedReport);
   assert.equal(clear.lastConfirmedReport.id, "vehicle-55");
   assert.equal(clear.connectivity, "signal_lost");
-  assert.deepEqual(clearSource.snapshot(63, scenario), clear);
-  assert.deepEqual(blockedSource.snapshot(63, scenario), blocked);
+  assert.deepEqual(clearSource.snapshot(64, scenario), clear);
+  assert.deepEqual(blockedSource.snapshot(64, scenario), blocked);
   clearSource.snapshot(20, scenario);
   blockedSource.snapshot(20, scenario);
-  assert.deepEqual(clearSource.snapshot(63, scenario), clear);
-  assert.deepEqual(blockedSource.snapshot(63, scenario), blocked);
+  assert.deepEqual(clearSource.snapshot(64, scenario), clear);
+  assert.deepEqual(blockedSource.snapshot(64, scenario), blocked);
 });

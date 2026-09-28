@@ -47,6 +47,7 @@ export interface ActivityEvent {
     | "operator_action"
     | "incident"
     | "unit_observation"
+    | "mobile_unit_observation"
     | "unit_status";
   displayTimestamp: string;
   deviceTimestamp?: string;

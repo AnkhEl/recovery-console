@@ -266,16 +266,17 @@ test("comparison explains incompatible prior state and later actions", () => {
   );
 });
 
-test("seed 27 plans replay deterministically and GPS loss retains the confirmed marker", () => {
-  const view = source.snapshot(0, original);
-  const review = engine.assessOperatorPlan(view, graph, draft, original);
+test("v4 plans replay deterministically and GPS loss retains the confirmed marker", () => {
+  const planOriginal = { ...original, seed: 413 };
+  const view = source.snapshot(0, planOriginal);
+  const review = engine.assessOperatorPlan(view, graph, draft, planOriginal);
   const planA = {
-    ...original,
+    ...planOriginal,
     id: "a",
     actions: engine.linkedPlanOrders(review.items, 0, "a", "Plan A"),
   };
   const planB = {
-    ...original,
+    ...planOriginal,
     id: "b",
     actions: [
       {
@@ -297,48 +298,50 @@ test("seed 27 plans replay deterministically and GPS loss retains the confirmed 
     ],
   };
   const at55 = source.snapshot(55, planA);
-  const at63 = source.snapshot(63, planA);
-  assert.equal(at63.connectivity, "signal_lost");
-  assert.deepEqual(at63.lastConfirmedReport, at55.lastConfirmedReport);
+  const at64 = source.snapshot(64, planA);
+  assert.equal(at64.connectivity, "signal_lost");
+  assert.deepEqual(at64.lastConfirmedReport, at55.lastConfirmedReport);
   assert.deepEqual(
-    at63.observations.map((item) => [
+    at64.observations.map((item) => [
       item.unitId,
       item.observedSecond,
       item.availableSecond,
     ]),
-    [["unit-2", 61, 63]],
+    [["unit-2", 62, 64]],
   );
-  assert.equal(source.snapshot(90, original).observations.length, 0);
+  assert.equal(source.snapshot(90, planOriginal).observations.length, 0);
   assert.equal(source.snapshot(90, planB).observations.length, 0);
   const finish = source.snapshot(90, planA);
   source.snapshot(18, planA);
   assert.deepEqual(source.snapshot(90, planA), finish);
 });
 
-test("comparison window separates partial from completed seed 27 outcomes", () => {
+test("comparison window separates partial from completed v4 outcomes", () => {
+  const planOriginal = { ...original, seed: 413 };
   const review = engine.assessOperatorPlan(
-    source.snapshot(0, original),
+    source.snapshot(0, planOriginal),
     graph,
     draft,
-    original,
+    planOriginal,
   );
   const planA = {
-    ...original,
+    ...planOriginal,
     actions: engine.linkedPlanOrders(review.items, 0, "a", "Plan A"),
   };
   assert.equal(engine.comparisonDeadline(0), 90);
   assert.equal(engine.comparisonDeadline(95), 180);
   const completeView = source.snapshot(90, planA);
-  assert.equal(engine.comparisonObservations(completeView, 0, 62).length, 0);
+  assert.equal(engine.comparisonObservations(completeView, 0, 63).length, 0);
   assert.deepEqual(
     engine
-      .comparisonObservations(completeView, 0, 63)
+      .comparisonObservations(completeView, 0, 64)
       .map((item) => [item.observedSecond, item.availableSecond]),
-    [[61, 63]],
+    [[62, 64]],
   );
   assert.equal(engine.comparisonObservations(completeView, 0, 90).length, 1);
   assert.equal(
-    engine.comparisonObservations(source.snapshot(90, original), 0, 90).length,
+    engine.comparisonObservations(source.snapshot(90, planOriginal), 0, 90)
+      .length,
     0,
   );
 });
@@ -393,7 +396,7 @@ test("retasking an incumbent can remove an otherwise available observation", () 
         item.observedSecond,
         item.availableSecond,
       ]),
-    [["unit-2", "junction-7", 53, 55]],
+    [["unit-2", "junction-7", 47, 49]],
   );
   assert.equal(
     engine.comparisonObservations(source.snapshot(90, retask), 0, 90).length,

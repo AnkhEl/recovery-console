@@ -68,21 +68,21 @@ const shortOrder = (seed, unitId, junctionId, second = 0, outages = []) => ({
 });
 
 test("short Sandown Valley Crescent and Sandton Drive traversals can be observed", () => {
-  assert.equal(COORDINATION_SIMULATOR_VERSION, "coordination-simulator-v3");
+  assert.equal(COORDINATION_SIMULATOR_VERSION, "coordination-simulator-v4");
   for (const { junctionId, edgeId, unitId, seed, observedSecond } of [
     {
       junctionId: "junction-7",
       edgeId: "12365616205:204103935",
       unitId: "unit-2",
       seed: 11,
-      observedSecond: 40,
+      observedSecond: 39,
     },
     {
       junctionId: "junction-8",
       edgeId: "7181596116:21626257",
       unitId: "unit-3",
       seed: 2,
-      observedSecond: 35,
+      observedSecond: 34,
     },
   ]) {
     const { fixture, source: shortSource } = shortApproachFixture(
@@ -130,12 +130,12 @@ test("a short-edge sighting during GPS loss leaves the last vehicle report fixed
   const scenario = shortOrder(2, "unit-3", "junction-8", 0, [
     { start: 20, end: 80 },
   ]);
-  const beforeAvailable = shortSource.snapshot(36, scenario);
-  const available = shortSource.snapshot(37, scenario);
+  const beforeAvailable = shortSource.snapshot(35, scenario);
+  const available = shortSource.snapshot(36, scenario);
   assert.equal(available.connectivity, "signal_lost");
   assert.equal(beforeAvailable.observations.length, 0);
-  assert.equal(available.observations[0].observedSecond, 35);
-  assert.equal(available.observations[0].availableSecond, 37);
+  assert.equal(available.observations[0].observedSecond, 34);
+  assert.equal(available.observations[0].availableSecond, 36);
   assert.deepEqual(
     available.lastConfirmedReport,
     beforeAvailable.lastConfirmedReport,
@@ -148,7 +148,7 @@ test("a short-edge sighting during GPS loss leaves the last vehicle report fixed
     ),
     false,
   );
-  assert.deepEqual(shortSource.snapshot(37, scenario), available);
+  assert.deepEqual(shortSource.snapshot(36, scenario), available);
 });
 
 test("short-edge proximity alone does not create an observation", () => {
@@ -222,6 +222,52 @@ test("an incoming edge remains out of observation range until its final 75 m", (
   const scenario = shortOrder(2, "unit-3", "junction-8");
   assert.equal(longSource.snapshot(5, scenario).observations.length, 0);
   assert.equal(longSource.snapshot(90, scenario).observations.length, 1);
+});
+
+test("movement carries remaining travel across short connected edges within one tick", () => {
+  const start = [28.04625, -26.1053];
+  const tiny = new CoordinationGraph({
+    nodes: [
+      ["a", ...start],
+      ["b", start[0] + 0.00002, start[1]],
+      ["c", start[0] + 0.00004, start[1]],
+    ],
+    edges: [
+      ["a", "b", "Synthetic short road", 30],
+      ["b", "c", "Synthetic short road", 30],
+    ],
+    junctions: [
+      {
+        id: "short-objective",
+        nodeId: "c",
+        name: "Synthetic short-edge objective",
+        visibleApproachEdgeIds: [],
+      },
+    ],
+  });
+  const shortSource = new CoordinatedIncidentSource(tiny);
+  const ordered = run(4, [
+    {
+      id: "short-order",
+      second: 0,
+      unitId: "unit-3",
+      kind: "assign",
+      objectiveId: "short-objective",
+    },
+  ]);
+  const atOne = shortSource.snapshot(1, ordered);
+  assert.equal(atOne.unitStatuses["unit-3"], "on_post");
+  assert.deepEqual(
+    atOne.coordinationEvents
+      .filter((event) => event.kind === "unit_status")
+      .map((event) => event.scenarioSecond),
+    [1],
+  );
+  assert.equal(
+    shortSource.snapshot(0, ordered).unitStatuses["unit-3"],
+    "en_route",
+  );
+  assert.deepEqual(shortSource.snapshot(1, ordered), atOne);
 });
 
 test("assignment moves a unit from its own position and changes its route", () => {
@@ -299,7 +345,7 @@ test("scrubbing and alternative action logs reproduce separate deterministic run
 });
 
 test("a unit observation during GPS loss does not move the confirmed GPS marker", () => {
-  const scenario = run(27, [
+  const scenario = run(413, [
     {
       id: "observe",
       second: 0,
@@ -308,15 +354,15 @@ test("a unit observation during GPS loss does not move the confirmed GPS marker"
       objectiveId: "junction-7",
     },
   ]);
-  const beforeAvailable = source.snapshot(62, scenario);
-  const available = source.snapshot(63, scenario);
-  const withoutOrder = source.snapshot(63, run(27));
+  const beforeAvailable = source.snapshot(63, scenario);
+  const available = source.snapshot(64, scenario);
+  const withoutOrder = source.snapshot(64, run(413));
   assert.equal(withoutOrder.observations.length, 0);
   assert.equal(beforeAvailable.connectivity, "signal_lost");
   assert.equal(beforeAvailable.observations.length, 0);
   assert.equal(available.observations.length, 1);
-  assert.equal(available.observations[0].observedSecond, 61);
-  assert.equal(available.observations[0].availableSecond, 63);
+  assert.equal(available.observations[0].observedSecond, 62);
+  assert.equal(available.observations[0].availableSecond, 64);
   assert.equal(
     available.coordinationEvents.some(
       (event) => event.kind === "unit_observation",

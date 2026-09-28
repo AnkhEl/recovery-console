@@ -5,6 +5,7 @@ import {
   COORDINATION_SIMULATOR_VERSION,
   CoordinatedIncidentSource,
   CoordinationGraph,
+  type MobileFixture,
   type Order,
   type ScenarioRun,
 } from "./coordination";
@@ -98,6 +99,17 @@ const scenarioSeed = (() => {
     ? requested
     : 42;
 })();
+const mobileFixture: MobileFixture = (() => {
+  if (!import.meta.env.DEV) return "none";
+  const value = new URLSearchParams(location.search).get("mobileFixture");
+  return value === "oncoming-clear" ||
+    value === "following-clear" ||
+    value === "oncoming-fleeting" ||
+    value === "oncoming-separating" ||
+    value === "following-behind"
+    ? value
+    : "none";
+})();
 export function App() {
   const [source, setSource] = useState<CoordinatedIncidentSource | null>(null),
     [loadError, setLoadError] = useState("");
@@ -179,6 +191,7 @@ export function App() {
             new CoordinationGraph(data),
             unavailableUnitIds,
             sightLineDataset(sightLineFixture),
+            mobileFixture,
           ),
         );
       })
@@ -666,6 +679,26 @@ export function App() {
       displayTimestamp: displayTimestamp(0),
       text: "Incident opened. Initial confirmed device report received.",
     },
+    ...(mobileFixture !== "none"
+      ? [
+          {
+            id: "mobile-fixture-outage",
+            incidentId: INCIDENT.id,
+            kind: "signal_change" as const,
+            scenarioSecond: 1,
+            displayTimestamp: displayTimestamp(1),
+            text: "Synthetic mobile fixture vehicle GPS loss started. Last confirmed report retained.",
+          },
+          {
+            id: "mobile-fixture-resumed",
+            incidentId: INCIDENT.id,
+            kind: "signal_change" as const,
+            scenarioSecond: 20,
+            displayTimestamp: displayTimestamp(20),
+            text: "Synthetic mobile fixture GPS loss ended. A new device report may arrive.",
+          },
+        ]
+      : []),
     {
       id: "outage",
       incidentId: INCIDENT.id,
@@ -1484,10 +1517,17 @@ export function App() {
             </label>
             <button
               className="secondary"
-              disabled={time >= 60 && time < 90}
+              disabled={
+                (time >= 60 && time < 90) ||
+                (mobileFixture !== "none" && time >= 1 && time < 20)
+              }
               onClick={toggleSignal}
             >
-              {manualActive ? "Restore signal" : "Simulate signal loss"}
+              {mobileFixture !== "none" && time >= 1 && time < 20
+                ? "Fixture signal loss"
+                : manualActive
+                  ? "Restore signal"
+                  : "Simulate signal loss"}
             </button>
           </div>
           {runs.length > 1 && (

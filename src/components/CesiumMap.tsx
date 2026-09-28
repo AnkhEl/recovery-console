@@ -92,6 +92,8 @@ export function CesiumMap({
     objectiveRefs = useRef<Cesium.Entity[]>([]),
     observationRefs = useRef<Cesium.Entity[]>([]),
     observationKeyRef = useRef(""),
+    mobileObservationRefs = useRef<Cesium.Entity[]>([]),
+    mobileObservationKeyRef = useRef(""),
     footprintRefs = useRef<Cesium.Entity[]>([]),
     trafficRefs = useRef<Map<string, { entity: Cesium.Entity; level: 1 | 2 }>>(
       new Map(),
@@ -146,6 +148,7 @@ export function CesiumMap({
       historyKeyRef.current = "";
       plannedKeyRef.current = "";
       observationKeyRef.current = "";
+      mobileObservationKeyRef.current = "";
       trafficKeyRef.current = "";
       trafficRefs.current.clear();
       viewer.camera.setView({
@@ -626,6 +629,52 @@ export function CesiumMap({
       );
       observationKeyRef.current = observationKey;
     }
+    const mobileKey = JSON.stringify(
+      snapshot.mobileObservations.map((observation) => [
+        observation.id,
+        validUnitPosition(
+          snapshot.units.find((unit) => unit.unitId === observation.unitId),
+        ),
+      ]),
+    );
+    if (mobileKey !== mobileObservationKeyRef.current) {
+      mobileObservationRefs.current.forEach((entity) =>
+        viewer.entities.remove(entity),
+      );
+      mobileObservationRefs.current = snapshot.mobileObservations.flatMap(
+        (observation) => {
+          const coordinates = validUnitPosition(
+            snapshot.units.find((unit) => unit.unitId === observation.unitId),
+          );
+          return coordinates
+            ? [
+                viewer.entities.add({
+                  id: observation.id,
+                  name: `Simulated mobile sighting reported by ${observation.unitName}; approximate ${observation.roadName} corridor, no vehicle position`,
+                  position: degreePosition(coordinates, 14),
+                  ellipse: {
+                    semiMajorAxis: 25,
+                    semiMinorAxis: 25,
+                    material: Cesium.Color.fromCssColorString("#67e2bd33"),
+                    outline: true,
+                    outlineColor: Cesium.Color.fromCssColorString("#67e2bd"),
+                  },
+                  label: {
+                    text: `MOBILE SIGHTING · ${observation.unitName}`,
+                    font: "600 12px sans-serif",
+                    fillColor: Cesium.Color.WHITE,
+                    showBackground: true,
+                    backgroundColor:
+                      Cesium.Color.fromCssColorString("#12483eee"),
+                    pixelOffset: new Cesium.Cartesian2(0, -27),
+                  },
+                }),
+              ]
+            : [];
+        },
+      );
+      mobileObservationKeyRef.current = mobileKey;
+    }
     const trafficKey = snapshot.trafficSegments
       .map((segment) => `${segment.id}:${segment.level}`)
       .join("|");
@@ -930,6 +979,36 @@ export function CesiumMap({
                 </g>
               );
             })}
+            {snapshot.mobileObservations.map((observation) => {
+              const coordinates = validUnitPosition(
+                snapshot.units.find(
+                  (unit) => unit.unitId === observation.unitId,
+                ),
+              );
+              if (!coordinates) return null;
+              const [x, y] = project(coordinates);
+              return (
+                <g key={observation.id}>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="26"
+                    fill="#67e2bd33"
+                    stroke="#67e2bd"
+                    strokeWidth="3"
+                  />
+                  <text
+                    x={x}
+                    y={y - 32}
+                    textAnchor="middle"
+                    fill="#67e2bd"
+                    fontSize="14"
+                  >
+                    Mobile sighting · {observation.unitName}
+                  </text>
+                </g>
+              );
+            })}
             {snapshot.confirmedReports
               .filter(
                 (confirmed) => confirmed.id !== snapshot.lastConfirmedReport.id,
@@ -1112,6 +1191,12 @@ export function CesiumMap({
           building coverage incomplete
         </div>
       )}
+      {snapshot.mobileFixture !== "none" && (
+        <div className="mobile-fixture-label">
+          Synthetic mobile fixture ·{" "}
+          {snapshot.mobileFixture.replaceAll("-", " ")}
+        </div>
+      )}
       {snapshot.connectivity === "signal_lost" && (
         <div className="signal-overlay">
           <strong>Location updates interrupted</strong>
@@ -1132,6 +1217,23 @@ export function CesiumMap({
               ? " Vehicle GPS remains at its last confirmed report."
               : ""}{" "}
             No mapped blockage; actual visibility uncertain.
+          </span>
+        </div>
+      )}
+      {snapshot.mobileObservations.length > 0 && (
+        <div className="mobile-observation-overlay" role="status">
+          <strong>Simulated mobile unit sighting</strong>
+          <span>
+            {snapshot.mobileObservations.at(-1)?.unitName} reported a{" "}
+            {snapshot.mobileObservations.at(-1)?.encounterType === "oncoming"
+              ? "passing opposite-direction encounter"
+              : "following-behind encounter"}{" "}
+            on {snapshot.mobileObservations.at(-1)?.roadName}. Observed at{" "}
+            {elapsed(snapshot.mobileObservations.at(-1)!.observedSecond)};
+            available at{" "}
+            {elapsed(snapshot.mobileObservations.at(-1)!.availableSecond)}.
+            Approximate corridor only; visibility uncertain. Vehicle GPS stays
+            at its last confirmed report during signal loss.
           </span>
         </div>
       )}
@@ -1168,6 +1270,9 @@ export function CesiumMap({
             </span>
             <span>
               <i className="legend-observation" /> Unit observation
+            </span>
+            <span>
+              <i className="legend-mobile-observation" /> Mobile sighting
             </span>
             {footprintsVisible && (
               <span>

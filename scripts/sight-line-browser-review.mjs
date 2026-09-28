@@ -15,7 +15,7 @@ for (const fixture of ["clear", "blocked"]) {
   });
   page.on("pageerror", (error) => errors.push(String(error)));
   const url = new URL(base);
-  url.searchParams.set("scenarioSeed", "27");
+  url.searchParams.set("scenarioSeed", "413");
   url.searchParams.set("sightLineFixture", fixture);
   await page.goto(url.toString(), {
     waitUntil: "domcontentloaded",
@@ -28,7 +28,7 @@ for (const fixture of ["clear", "blocked"]) {
   const slider = page.getByRole("slider", { name: "Scenario time in seconds" });
   await slider.fill("55");
   const before = await page.locator(".location-box strong").innerText();
-  await slider.fill("63");
+  await slider.fill("64");
   assert.equal(await page.locator(".location-box strong").innerText(), before);
   assert.match(
     await page.locator(".signal-overlay").innerText(),
@@ -60,7 +60,7 @@ for (const fixture of ["clear", "blocked"]) {
   if (fixture === "clear") {
     assert.match(
       await page.locator(".observation-overlay").innerText(),
-      /Observed at 01:01; available at 01:03/,
+      /Observed at 01:02; available at 01:04/,
     );
     assert.match(
       await page.locator(".observation-overlay").innerText(),
@@ -90,7 +90,7 @@ const mobile = await browser.newPage({
 });
 mobile.on("pageerror", (error) => errors.push(String(error)));
 const mobileUrl = new URL(base);
-mobileUrl.searchParams.set("scenarioSeed", "27");
+mobileUrl.searchParams.set("scenarioSeed", "413");
 mobileUrl.searchParams.set("sightLineFixture", "blocked");
 await mobile.goto(mobileUrl.toString(), {
   waitUntil: "domcontentloaded",

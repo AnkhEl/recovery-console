@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 
-const url = process.argv[2] ?? "http://127.0.0.1:5173/?scenarioSeed=27";
+const url = process.argv[2] ?? "http://127.0.0.1:5173/?scenarioSeed=413";
 const browser = await chromium.launch({
   headless: true,
   args: ["--no-sandbox", "--use-gl=swiftshader", "--enable-webgl"],
@@ -20,7 +20,7 @@ await page.getByRole("button", { name: "Assign and move Unit 02" }).click();
 const slider = page.getByRole("slider", { name: "Scenario time in seconds" });
 await slider.fill("55");
 const before = await page.locator(".location-box strong").innerText();
-await slider.fill("63");
+await slider.fill("64");
 assert.equal(await page.locator(".location-box strong").innerText(), before);
 assert.match(
   await page.locator(".vehicle-card").innerText(),
@@ -28,7 +28,7 @@ assert.match(
 );
 assert.match(
   await page.locator(".observation-overlay").innerText(),
-  /Observed at 01:01; available at 01:03/,
+  /Observed at 01:02; available at 01:04/,
 );
 assert.match(
   await page.locator(".observation-overlay").innerText(),

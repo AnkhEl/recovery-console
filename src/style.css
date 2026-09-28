@@ -525,6 +525,10 @@ button:disabled {
   background: #9c88d488;
   border: 1px solid #b4a0eb;
 }
+.legend-mobile-observation {
+  border: 2px solid #67e2bd;
+  border-radius: 50%;
+}
 .sight-line-fixture-label {
   position: absolute;
   z-index: 3;
@@ -537,6 +541,21 @@ button:disabled {
   border-radius: 4px;
   color: #ffe0d6;
   background: #462d32ed;
+  text-align: center;
+  font-size: 0.72rem;
+}
+.mobile-fixture-label {
+  position: absolute;
+  z-index: 3;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(350px, calc(100% - 230px));
+  padding: 7px 9px;
+  border: 1px solid #67e2bd;
+  border-radius: 4px;
+  color: #d8fff2;
+  background: #153d39ed;
   text-align: center;
   font-size: 0.72rem;
 }
@@ -594,6 +613,25 @@ button:disabled {
   font-size: 0.75rem;
 }
 .observation-overlay strong {
+  font-size: 0.82rem;
+}
+.mobile-observation-overlay {
+  position: absolute;
+  z-index: 3;
+  bottom: 165px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(400px, calc(100% - 180px));
+  display: grid;
+  gap: 4px;
+  padding: 10px 14px;
+  border: 1px solid #67e2bd;
+  border-radius: 6px;
+  background: #143d39ed;
+  color: #d8fff2;
+  font-size: 0.75rem;
+}
+.mobile-observation-overlay strong {
   font-size: 0.82rem;
 }
 .map-message {
@@ -1033,6 +1071,12 @@ button:disabled {
 }
 .activity-unit_observation {
   color: #f5d99a;
+}
+.activity-mobile_unit_observation:before {
+  background: #67e2bd !important;
+}
+.activity-mobile_unit_observation {
+  color: #baf4e3;
 }
 .activity {
   margin-top: 29px;
@@ -1696,6 +1740,20 @@ dialog h2 {
     right: 15px;
     left: auto;
     width: min(230px, calc(100% - 75px));
+    transform: none;
+  }
+  .mobile-fixture-label {
+    top: 113px;
+    right: 15px;
+    left: auto;
+    width: min(230px, calc(100% - 75px));
+    transform: none;
+  }
+  .mobile-observation-overlay {
+    right: 15px;
+    bottom: 105px;
+    left: 15px;
+    width: auto;
     transform: none;
   }
   .map-panel.full-page-map:has(.sight-line-fixture-label) .signal-overlay {
