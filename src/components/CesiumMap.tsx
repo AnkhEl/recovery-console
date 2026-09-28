@@ -92,6 +92,7 @@ export function CesiumMap({
     objectiveRefs = useRef<Cesium.Entity[]>([]),
     observationRefs = useRef<Cesium.Entity[]>([]),
     observationKeyRef = useRef(""),
+    footprintRefs = useRef<Cesium.Entity[]>([]),
     trafficRefs = useRef<Map<string, { entity: Cesium.Entity; level: 1 | 2 }>>(
       new Map(),
     ),
@@ -104,6 +105,9 @@ export function CesiumMap({
     [street, setStreet] = useState(true),
     [tilted, setTilted] = useState(false),
     [labels, setLabels] = useState(true),
+    [footprintsVisible, setFootprintsVisible] = useState(
+      snapshot.sightLineFixture !== "none",
+    ),
     [message, setMessage] = useState("");
   const previousSnapshotRef = useRef(snapshot);
   const latestSnapshotRef = useRef(snapshot);
@@ -166,6 +170,11 @@ export function CesiumMap({
       viewer.creditDisplay.addStaticCredit(
         imageryCredit(
           'Road graph © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) · traffic and movement simulated',
+        ),
+      );
+      viewer.creditDisplay.addStaticCredit(
+        imageryCredit(
+          'Mapped building footprints © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) · incomplete coverage',
         ),
       );
       vehicleRef.current = viewer.entities.add({
@@ -350,6 +359,83 @@ export function CesiumMap({
       removeErrorListener();
     };
   }, [ready, street]);
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !ready) return;
+    footprintRefs.current.forEach((entity) => viewer.entities.remove(entity));
+    footprintRefs.current = [];
+    if (footprintsVisible) {
+      footprintRefs.current = snapshot.sightLineFootprints.map((footprint) =>
+        viewer.entities.add({
+          id: `mapped-footprint-${footprint.id}`,
+          name:
+            footprint.source === "synthetic_fixture"
+              ? "Synthetic sight-line obstruction fixture"
+              : `Mapped OSM building footprint ${footprint.id}; coverage incomplete`,
+          ...(footprint.source === "synthetic_fixture"
+            ? {
+                position: degreePosition([28.05142, -26.10363], 17),
+                label: {
+                  text: "SYNTHETIC BLOCK",
+                  font: "600 11px sans-serif",
+                  fillColor: Cesium.Color.WHITE,
+                  showBackground: true,
+                  backgroundColor: Cesium.Color.fromCssColorString("#70392fee"),
+                  pixelOffset: new Cesium.Cartesian2(0, 15),
+                  disableDepthTestDistance: Infinity,
+                },
+              }
+            : {}),
+          polygon: {
+            hierarchy: Cesium.Cartesian3.fromDegreesArray(
+              footprint.coordinates.flat(),
+            ),
+            height: 3,
+            material: Cesium.Color.fromCssColorString(
+              footprint.source === "synthetic_fixture"
+                ? "#f28b7488"
+                : "#9c88d455",
+            ),
+            outline: true,
+            outlineColor: Cesium.Color.fromCssColorString(
+              footprint.source === "synthetic_fixture" ? "#f28b74" : "#b4a0eb",
+            ),
+          },
+        }),
+      );
+      for (const [id, point] of Object.entries(
+        snapshot.sightLineObserverPoints,
+      ))
+        footprintRefs.current.push(
+          viewer.entities.add({
+            id: `sight-point-${id}`,
+            name: `Synthetic unit sight point for ${id}`,
+            position: degreePosition(point, 13),
+            point: {
+              pixelSize: 11,
+              color: Cesium.Color.fromCssColorString("#f28b74"),
+              outlineColor: Cesium.Color.WHITE,
+              outlineWidth: 2,
+              disableDepthTestDistance: Infinity,
+            },
+            label: {
+              text: "SYNTHETIC SIGHT POINT",
+              font: "600 11px sans-serif",
+              fillColor: Cesium.Color.WHITE,
+              showBackground: true,
+              backgroundColor: Cesium.Color.fromCssColorString("#522f30ee"),
+              pixelOffset: new Cesium.Cartesian2(0, -22),
+            },
+          }),
+        );
+    }
+    viewer.scene.requestRender();
+  }, [
+    ready,
+    footprintsVisible,
+    snapshot.sightLineFootprints,
+    snapshot.sightLineObserverPoints,
+  ]);
   useEffect(() => {
     if (labelsRef.current) labelsRef.current.show = labels;
     viewerRef.current?.scene.requestRender();
@@ -735,6 +821,26 @@ export function CesiumMap({
             aria-label="Illustrative incident diagram, not a geographic street map"
           >
             <rect width="1000" height="800" fill="#162230" />
+            {footprintsVisible &&
+              snapshot.sightLineFootprints.map((footprint) => (
+                <polygon
+                  key={footprint.id}
+                  points={footprint.coordinates
+                    .map((point) => project(point).join(","))
+                    .join(" ")}
+                  fill={
+                    footprint.source === "synthetic_fixture"
+                      ? "#f28b7488"
+                      : "#9c88d455"
+                  }
+                  stroke={
+                    footprint.source === "synthetic_fixture"
+                      ? "#f28b74"
+                      : "#b4a0eb"
+                  }
+                  strokeWidth="2"
+                />
+              ))}
             {snapshot.trafficSegments.map((segment) => (
               <line
                 key={segment.id}
@@ -992,7 +1098,20 @@ export function CesiumMap({
         >
           Aa <span>Road labels</span>
         </button>
+        <button
+          aria-label="Mapped building footprints"
+          aria-pressed={footprintsVisible}
+          onClick={() => setFootprintsVisible((visible) => !visible)}
+        >
+          ▰ <span>Mapped footprints</span>
+        </button>
       </div>
+      {snapshot.sightLineFixture !== "none" && (
+        <div className="sight-line-fixture-label">
+          Synthetic sight-line fixture · {snapshot.sightLineFixture} · mapped
+          building coverage incomplete
+        </div>
+      )}
       {snapshot.connectivity === "signal_lost" && (
         <div className="signal-overlay">
           <strong>Location updates interrupted</strong>
@@ -1011,7 +1130,8 @@ export function CesiumMap({
             at {elapsed(snapshot.observations.at(-1)!.availableSecond)}.
             {snapshot.connectivity === "signal_lost"
               ? " Vehicle GPS remains at its last confirmed report."
-              : ""}
+              : ""}{" "}
+            No mapped blockage; actual visibility uncertain.
           </span>
         </div>
       )}
@@ -1049,6 +1169,11 @@ export function CesiumMap({
             <span>
               <i className="legend-observation" /> Unit observation
             </span>
+            {footprintsVisible && (
+              <span>
+                <i className="legend-footprint" /> Mapped footprints
+              </span>
+            )}
           </div>
           <button
             className="map-help"
@@ -1057,7 +1182,7 @@ export function CesiumMap({
               setMessage((v) =>
                 v
                   ? ""
-                  : "Real map imagery and mapped road geometry; all vehicle and unit reports, traffic and movements are simulated. Marker arrows show headings at the latest simulated reports, not predictions. The vehicle arrow is hidden during signal loss. Red points are confirmed simulated device reports. Purple dashed paths are inferred between consecutive reports; no path crosses missing reports. Cyan dashed paths and ETAs are simulated unit plans. Gold rings mark approximate simulated unit observations, including during GPS loss; they never move the last confirmed GPS marker. OpenStreetMap road arrows and traffic-signal symbols describe mapped roads, not live signal phases or verified lanes. Road graph © OpenStreetMap contributors (ODbL).",
+                  : "Real map imagery and mapped road geometry; all vehicle and unit reports, traffic and movements are simulated. Marker arrows show headings at the latest simulated reports, not predictions. The vehicle arrow is hidden during signal loss. Red points are confirmed simulated device reports. Purple dashed paths are inferred between consecutive reports; no path crosses missing reports. Cyan dashed paths and ETAs are simulated unit plans. Gold rings mark approximate simulated unit observations, including during GPS loss; they never move the last confirmed GPS marker. Mapped building footprints are incomplete; no mapped blockage means uncertain real-world visibility. Synthetic sight-line fixtures are labelled. Road graph and building footprints © OpenStreetMap contributors (ODbL).",
               )
             }
           >

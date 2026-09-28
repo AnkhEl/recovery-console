@@ -521,6 +521,31 @@ button:disabled {
   border: 2px solid #f5c774;
   border-radius: 50%;
 }
+.legend-footprint {
+  background: #9c88d488;
+  border: 1px solid #b4a0eb;
+}
+.sight-line-fixture-label {
+  position: absolute;
+  z-index: 3;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, calc(100% - 230px));
+  padding: 7px 9px;
+  border: 1px solid #d59381;
+  border-radius: 4px;
+  color: #ffe0d6;
+  background: #462d32ed;
+  text-align: center;
+  font-size: 0.72rem;
+}
+.map-panel:has(.sight-line-fixture-label) .signal-overlay {
+  top: 128px;
+}
+.map-panel:has(.sight-line-fixture-label) .observation-overlay {
+  top: 226px;
+}
 .map-help {
   pointer-events: auto;
   border-radius: 50%;
@@ -1665,5 +1690,18 @@ dialog h2 {
     bottom: 310px;
     width: auto;
     transform: none;
+  }
+  .sight-line-fixture-label {
+    top: 113px;
+    right: 15px;
+    left: auto;
+    width: min(230px, calc(100% - 75px));
+    transform: none;
+  }
+  .map-panel.full-page-map:has(.sight-line-fixture-label) .signal-overlay {
+    top: auto;
+  }
+  .map-panel.full-page-map:has(.sight-line-fixture-label) .observation-overlay {
+    top: auto;
   }
 }

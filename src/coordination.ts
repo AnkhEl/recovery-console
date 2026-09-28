@@ -17,8 +17,14 @@ import {
   signalLostAt,
   distance,
 } from "./scenario";
+import {
+  sightLineBlocked,
+  sightLineDataset,
+  type SightLineDataset,
+  type SightLineFootprint,
+} from "./sightLines";
 
-export const COORDINATION_SIMULATOR_VERSION = "coordination-simulator-v2";
+export const COORDINATION_SIMULATOR_VERSION = "coordination-simulator-v3";
 
 export type Objective = {
   id: string;
@@ -68,6 +74,7 @@ export type UnitObservation = {
   observedSecond: number;
   availableSecond: number;
   directionDegrees: number;
+  sightLineAssessment: "no_mapped_blockage_visibility_uncertain";
 };
 export interface CoordinationSnapshot extends ScenarioSnapshot {
   simulatorVersion: typeof COORDINATION_SIMULATOR_VERSION;
@@ -81,6 +88,9 @@ export interface CoordinationSnapshot extends ScenarioSnapshot {
   plannedRoutes: PlannedRoute[];
   trafficSegments: TrafficSegment[];
   observations: UnitObservation[];
+  sightLineFootprints: SightLineFootprint[];
+  sightLineObserverPoints: Record<string, Coordinates>;
+  sightLineFixture: SightLineDataset["fixture"];
   coordinationEvents: ActivityEvent[];
 }
 
@@ -306,6 +316,7 @@ export class CoordinatedIncidentSource {
   constructor(
     readonly graph: CoordinationGraph,
     private readonly unavailableUnitIds: ReadonlySet<string> = new Set(),
+    private readonly sightLines: SightLineDataset = sightLineDataset(),
   ) {}
 
   snapshot(
@@ -531,6 +542,20 @@ export class CoordinatedIncidentSource {
             0
           )
             continue;
+          const observer =
+            this.sightLines.observerPoints[objective.id] ??
+            objective.coordinates;
+          // This uses internal synthetic vehicle motion only to decide whether
+          // the unit could observe it. Neither the ray nor hidden position is
+          // included in the operator snapshot or activity feed.
+          if (
+            sightLineBlocked(
+              observer,
+              position(vehicle, this.graph),
+              this.sightLines.footprints,
+            )
+          )
+            continue;
           const key = `${unit.id}:${vehicleEdgeSequence}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -543,6 +568,7 @@ export class CoordinatedIncidentSource {
             observedSecond: t,
             availableSecond: t + 2,
             directionDegrees: vehicle.headingDegrees,
+            sightLineAssessment: "no_mapped_blockage_visibility_uncertain",
           });
         }
       if (t % REPORT_INTERVAL === 0) {
@@ -702,6 +728,9 @@ export class CoordinatedIncidentSource {
       observations: observations.filter(
         (observation) => observation.availableSecond <= displaySecond,
       ),
+      sightLineFootprints: this.sightLines.footprints,
+      sightLineObserverPoints: this.sightLines.observerPoints,
+      sightLineFixture: this.sightLines.fixture,
       coordinationEvents: [
         ...arrivals,
         ...observations
@@ -712,7 +741,7 @@ export class CoordinatedIncidentSource {
             kind: "unit_observation" as const,
             scenarioSecond: observation.availableSecond,
             displayTimestamp: displayTimestamp(observation.availableSecond),
-            text: `${observation.unitName} simulated observation at ${observation.junction.name}: vehicle approached on ${observation.approachName}, heading about ${Math.round(observation.directionDegrees)}°. Observed ${observation.observedSecond}s into replay; available ${observation.availableSecond}s into replay. Approximate approach only.`,
+            text: `${observation.unitName} simulated observation at ${observation.junction.name}: vehicle approached on ${observation.approachName}, heading about ${Math.round(observation.directionDegrees)}°. Observed ${observation.observedSecond}s into replay; available ${observation.availableSecond}s into replay. No mapped obstruction on the simulated sight line; real-world visibility uncertain because footprints are incomplete. Approximate approach only.`,
           })),
       ],
     };

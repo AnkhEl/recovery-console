@@ -9,6 +9,7 @@ import {
   type ScenarioRun,
 } from "./coordination";
 import { validUnitPosition } from "./unitPosition";
+import { sightLineDataset } from "./sightLines";
 import {
   baselineAlternatives,
   createScenarioReview,
@@ -166,10 +167,18 @@ export function App() {
         const unavailableUnitIds = import.meta.env.DEV
           ? new Set(new URLSearchParams(location.search).getAll("missingUnit"))
           : new Set<string>();
+        const requestedFixture = import.meta.env.DEV
+          ? new URLSearchParams(location.search).get("sightLineFixture")
+          : null;
+        const sightLineFixture =
+          requestedFixture === "clear" || requestedFixture === "blocked"
+            ? requestedFixture
+            : "none";
         setSource(
           new CoordinatedIncidentSource(
             new CoordinationGraph(data),
             unavailableUnitIds,
+            sightLineDataset(sightLineFixture),
           ),
         );
       })
@@ -959,7 +968,9 @@ export function App() {
               onToggle={() => toggleSection("team")}
             >
               <p>
-                Configured sight lines across current orders. These are separate
+                Configured approach coverage across current orders. Mapped
+                buildings can block a simulated sighting; missing or incomplete
+                footprints leave visibility uncertain. These are separate
                 possible next orders, not a coordinated dispatch plan.
               </p>
               <p className="team-evidence">

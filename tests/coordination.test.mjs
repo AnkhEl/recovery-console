@@ -68,7 +68,7 @@ const shortOrder = (seed, unitId, junctionId, second = 0, outages = []) => ({
 });
 
 test("short Sandown Valley Crescent and Sandton Drive traversals can be observed", () => {
-  assert.equal(COORDINATION_SIMULATOR_VERSION, "coordination-simulator-v2");
+  assert.equal(COORDINATION_SIMULATOR_VERSION, "coordination-simulator-v3");
   for (const { junctionId, edgeId, unitId, seed, observedSecond } of [
     {
       junctionId: "junction-7",

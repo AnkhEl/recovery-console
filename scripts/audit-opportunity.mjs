@@ -55,6 +55,8 @@ const compiled = await build({
 const engine = await import(
   `data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`
 );
+if (engine.COORDINATION_SIMULATOR_VERSION !== "coordination-simulator-v1")
+  throw new Error("Historical opportunity audit requires simulator v1");
 const graphFile = JSON.parse(
   readFileSync("public/coordination-graph.json", "utf8"),
 );
